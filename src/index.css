@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-base: var(--color-orange-600);
+  --color-primary-hover: var(--color-orange-700);
+  --color-primary-text: var(--color-orange-600);
+  --color-neutral-bg: var(--color-slate-50);
+  --color-neutral-card: var(--color-white);
+  --color-neutral-text: var(--color-slate-900);
+  --color-neutral-border: var(--color-slate-200);
+}
+
+@layer base {
+  body {
+    @apply bg-slate-100 text-slate-900 antialiased;
+  }
+}
