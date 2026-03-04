@@ -20,10 +20,14 @@ export const OrderRepository = {
 
     // 새 주문 생성
     async createOrder(orderData) {
-        // 직관적 ID 채번을 위해 현재 총 개수를 구하는 대신 단순 랜덤/날짜 베이스 ID를 사용할 수 도 있지만,
-        // 요구사항에 'ORD-001' 등 직관적 채번이라고 되어 있음. 여기서는 Firestore auto-id가 아닌 커스텀 ID를 쓰려면
-        // 별도의 Counters 콜렉션 관리가 필요함. 간단히 Timestamp 기반 커스텀 ID 생성 로직으로 처리.
-        const customId = `ORD-${Date.now().toString().slice(-6)}`;
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        const customId = `${year}${month}${day}-${hours}${minutes}${seconds}`;
 
         await addDoc(collection(db, ORDERS_COLLECTION), {
             customId, // UI에서 보여줄 용도
@@ -42,9 +46,30 @@ export const OrderRepository = {
         return customId;
     },
 
-    // 주문 상태 및 정보 업데이트 (옵션)
+    // 주문 상태 및 정보 업데이트 (단일 필드 업데이트용 범용)
     async updateOrder(docId, updateData) {
         const orderRef = doc(db, ORDERS_COLLECTION, docId);
         await updateDoc(orderRef, updateData);
+    },
+
+    // 관리자: 주문 상태 단일 변경 (AdminView에서 호출)
+    async updateOrderStatus(docId, newStatus) {
+        const orderRef = doc(db, ORDERS_COLLECTION, docId);
+        await updateDoc(orderRef, { status: newStatus });
+    },
+
+    // 관리자: 주문 단가/금액 변경 (AdminView에서 호출)
+    async updateOrderTotal(docId, newTotal) {
+        const orderRef = doc(db, ORDERS_COLLECTION, docId);
+        await updateDoc(orderRef, { total: newTotal });
+    },
+
+    // 관리자: 작업 시안 이미지(배열) 업데이트 및 상태 변경 (AdminView에서 호출)
+    async updateDraftImages(docId, newDraftUrls) {
+        const orderRef = doc(db, ORDERS_COLLECTION, docId);
+        await updateDoc(orderRef, {
+            draftImageUrls: newDraftUrls,
+            proofImageUrl: newDraftUrls.length > 0 ? newDraftUrls[newDraftUrls.length - 1] : '' // 레거시 호환용
+        });
     }
 };

@@ -1,0 +1,16 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 파트너 명단: 누구나 코드로 검색은 가능하게 (read), 쓰기는 누구나 임시 허용 (신청폼 때문)
+    match /partners/{document} {
+      // 운영 시에는 write 권한을 제한해야 합니다.
+      allow read: if true; 
+      allow write: if true; 
+    }
+    // 주문 내역: 누구나 자기 연락처로 조회 가능하게 (read), 쓰기도 임시 허용
+    match /orders/{document} {
+      allow read: if true;
+      allow write: if true; // 주문 접수 폼
+    }
+  }
+}

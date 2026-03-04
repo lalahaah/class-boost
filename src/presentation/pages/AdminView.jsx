@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { OrderRepository } from '../../data/OrderRepository';
 import { PartnerRepository } from '../../data/PartnerRepository';
+import { StorageService } from '../../data/StorageService';
 import { STATUS_MAP, STATUS_COLORS, PRICING } from '../../core/constants';
 
 // MVP: Hardcoded Admin Pin
@@ -55,24 +56,35 @@ export default function AdminView() {
         } catch (e) { alert('금액 수정 실패'); }
     };
 
-    const handleUploadDraft = async (orderId) => {
-        // In MVP, we just use a prompt for an image URL. In real app, we use StorageService.
-        const url = prompt('시안 이미지 URL을 입력하세요 (또는 이미지 호스팅 링크):');
-        if (url) {
-            try {
-                const order = orders.find(o => o.id === orderId);
-                const currentDrafts = order.draftImageUrls || [];
-                await OrderRepository.updateDraftImages(orderId, [...currentDrafts, url]);
-                await handleUpdateOrderStatus(orderId, 'WAIT_CONFIRM');
-                alert('시안 등록 및 상태 변경 완료');
-            } catch (e) { alert('시안 업데이트 실패'); }
+    const [isUploadingDraft, setIsUploadingDraft] = useState({});
+
+    const handleUploadDraft = async (orderId, file) => {
+        if (!file) return;
+
+        try {
+            setIsUploadingDraft(prev => ({ ...prev, [orderId]: true }));
+            const downloadURL = await StorageService.uploadFile(file, 'draft_proofs');
+
+            const order = orders.find(o => o.id === orderId);
+            const currentDrafts = order.draftImageUrls || [];
+
+            await OrderRepository.updateDraftImages(orderId, [...currentDrafts, downloadURL]);
+            await handleUpdateOrderStatus(orderId, 'WAIT_CONFIRM');
+
+            alert('시안 등록 및 상태 변경 완료');
+        } catch (e) {
+            alert('시안 업데이트 실패');
+            console.error(e);
+        } finally {
+            setIsUploadingDraft(prev => ({ ...prev, [orderId]: false }));
         }
     };
 
     const handleApprovePartner = async (partnerId) => {
         try {
-            await PartnerRepository.approvePartner(partnerId);
-            alert('승인 완료 (코드 자동생성됨)');
+            const generatedCode = `PTN${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+            await PartnerRepository.approvePartner(partnerId, generatedCode);
+            alert(`승인 완료 (발급코드: ${generatedCode})`);
         } catch (e) { alert('승인 실패'); }
     };
 
@@ -126,7 +138,7 @@ export default function AdminView() {
                         주문 관리 ({orders.filter(o => !['DONE', 'CANCELLED'].includes(o.status)).length})
                     </button>
                     <button onClick={() => setActiveTab('partners')} className={`px-6 py-2.5 rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'partners' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
-                        파트너 신청 관리 ({partners.filter(p => p.status === 'PENDING').length})
+                        파트너 신청 관리 ({partners.filter(p => p.status === 'WAITING').length})
                     </button>
                 </div>
             </div>
@@ -146,11 +158,11 @@ export default function AdminView() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {orders.sort((a, b) => b.createdAt?.toDate() - a.createdAt?.toDate()).map(order => (
+                                {orders.sort((a, b) => b.createdAt - a.createdAt).map(order => (
                                     <tr key={order.id} className="hover:bg-slate-50/50 transition-colors">
                                         <td className="p-4 align-top">
-                                            <div className="font-mono font-bold text-slate-900">{order.id.substring(0, 6)}...</div>
-                                            <div className="text-xs text-slate-500 mt-1">{order.createdAt?.toDate().toLocaleString('ko-KR')}</div>
+                                            <div className="font-mono font-bold text-slate-900">{order.customId || order.id.substring(0, 8)}</div>
+                                            <div className="text-xs text-slate-500 mt-1">{order.createdAt?.toLocaleString('ko-KR')}</div>
                                         </td>
                                         <td className="p-4 align-top">
                                             <div className="font-bold text-slate-900">{order.academyName}</div>
@@ -195,9 +207,14 @@ export default function AdminView() {
                                         </td>
                                         <td className="p-4 align-top text-right">
                                             {(order.status === 'NEW' || order.status === 'DESIGN') && (
-                                                <button onClick={() => handleUploadDraft(order.id)} className="bg-slate-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-800 transition-colors flex items-center ml-auto">
-                                                    <Send className="w-3 h-3 mr-1" /> 시안 등록 및 알림
-                                                </button>
+                                                <label className={`cursor-pointer bg-slate-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-slate-800 transition-colors flex items-center justify-center ml-auto ${isUploadingDraft[order.id] ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                                    <Send className="w-3 h-3 mr-1" /> {isUploadingDraft[order.id] ? '업로드 중...' : '시안 등록 및 알림'}
+                                                    <input type="file" className="hidden" accept="image/*" disabled={isUploadingDraft[order.id]} onChange={(e) => {
+                                                        if (e.target.files[0]) handleUploadDraft(order.id, e.target.files[0]);
+                                                        // Reset file input
+                                                        e.target.value = null;
+                                                    }} />
+                                                </label>
                                             )}
                                         </td>
                                     </tr>
@@ -226,13 +243,13 @@ export default function AdminView() {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {partners.sort((a, b) => b.createdAt?.toDate() - a.createdAt?.toDate()).map(partner => (
+                                {partners.sort((a, b) => b.createdAt - a.createdAt).map(partner => (
                                     <tr key={partner.id} className="hover:bg-slate-50/50 transition-colors">
-                                        <td className="p-4 text-slate-500">{partner.createdAt?.toDate().toLocaleString('ko-KR')}</td>
+                                        <td className="p-4 text-slate-500">{partner.createdAt?.toLocaleString('ko-KR')}</td>
                                         <td className="p-4 font-bold text-slate-900">{partner.academyName}</td>
                                         <td className="p-4 font-medium">{partner.phone}</td>
                                         <td className="p-4 text-center">
-                                            {partner.status === 'PENDING' && <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold">대기중</span>}
+                                            {partner.status === 'WAITING' && <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold">대기중</span>}
                                             {partner.status === 'APPROVED' && <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold">승인됨</span>}
                                             {partner.status === 'REJECTED' && <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-xs font-bold">반려됨</span>}
                                         </td>
@@ -242,7 +259,7 @@ export default function AdminView() {
                                             ) : '-'}
                                         </td>
                                         <td className="p-4 text-right">
-                                            {partner.status === 'PENDING' && (
+                                            {partner.status === 'WAITING' && (
                                                 <div className="flex justify-end gap-2">
                                                     <button onClick={() => handleApprovePartner(partner.id)} className="bg-green-500 hover:bg-green-600 text-white p-2 rounded-lg transition-colors" title="승인">
                                                         <UserCheck className="w-4 h-4" />

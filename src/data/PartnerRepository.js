@@ -1,9 +1,23 @@
-import { collection, doc, addDoc, updateDoc, onSnapshot, query, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, doc, addDoc, updateDoc, onSnapshot, query, orderBy, Timestamp, where, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
 
 const PARTNERS_COLLECTION = 'partners';
 
 export const PartnerRepository = {
+    // 파트너 코드 검증 (보안 개선: 프론트에서 전체 목록을 불러오지 않고 DB에서 직접 검색)
+    async verifyPartnerCode(code) {
+        const q = query(
+            collection(db, PARTNERS_COLLECTION),
+            where('code', '==', code),
+            where('status', '==', 'APPROVED')
+        );
+        const querySnapshot = await getDocs(q);
+        if (querySnapshot.empty) return null;
+
+        const docSnap = querySnapshot.docs[0];
+        return { id: docSnap.id, ...docSnap.data() };
+    },
+
     // 실시간 파트너 목록 수신
     subscribeToPartners(callback) {
         const q = query(collection(db, PARTNERS_COLLECTION), orderBy('createdAt', 'desc'));
@@ -44,6 +58,14 @@ export const PartnerRepository = {
         const partnerRef = doc(db, PARTNERS_COLLECTION, docId);
         await updateDoc(partnerRef, {
             status: 'REJECTED'
+        });
+    },
+
+    // 파트너 연락처 정보 수정
+    async updatePartnerPhone(docId, newPhone) {
+        const partnerRef = doc(db, PARTNERS_COLLECTION, docId);
+        await updateDoc(partnerRef, {
+            phone: newPhone
         });
     }
 };

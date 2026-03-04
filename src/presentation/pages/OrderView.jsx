@@ -11,14 +11,6 @@ import { StorageService } from '../../data/StorageService';
 
 export default function OrderView() {
     const navigate = useNavigate();
-    const [partnerRequests, setPartnerRequests] = useState([]);
-
-    useEffect(() => {
-        const unsubscribe = PartnerRepository.subscribeToPartners((data) => {
-            setPartnerRequests(data);
-        });
-        return () => unsubscribe();
-    }, []);
 
     const [authCode, setAuthCode] = useState('');
     const [authError, setAuthError] = useState('');
@@ -28,6 +20,7 @@ export default function OrderView() {
     const [items, setItems] = useState([{ id: Date.now(), size: '3400*400', customWidth: '', customHeight: '', qty: 1 }]);
     const [academyName, setAcademyName] = useState('');
     const [phone, setPhone] = useState('');
+    const [partnerId, setPartnerId] = useState(null);
     const [text, setText] = useState('');
     const [file, setFile] = useState(null);
     const [isSubmitted, setIsSubmitted] = useState(false);
@@ -63,13 +56,30 @@ export default function OrderView() {
     const totals = calculateTotals(items);
     const getFinalSizeString = (item) => item.size === 'CUSTOM' ? `${item.customWidth}*${item.customHeight} (직접입력)` : item.size;
 
-    const handleAuthSubmit = (e) => {
+    const handleAuthSubmit = async (e) => {
         e.preventDefault();
-        if (authCode.toUpperCase() === 'VIP2026' || partnerRequests.some(p => p.code === authCode.toUpperCase())) {
+
+        // MVP 데모용 하드코딩 패스워드
+        if (authCode.toUpperCase() === 'VIP2026') {
             setIsAuthorized(true);
             setAuthError('');
-        } else {
-            setAuthError('유효하지 않은 파트너 코드입니다. 아임오케이에 문의해주세요.');
+            return;
+        }
+
+        try {
+            const partnerData = await PartnerRepository.verifyPartnerCode(authCode.toUpperCase());
+            if (partnerData) {
+                setIsAuthorized(true);
+                setAuthError('');
+                setPartnerId(partnerData.id);
+                if (partnerData.academyName) setAcademyName(partnerData.academyName);
+                if (partnerData.phone) setPhone(partnerData.phone);
+            } else {
+                setAuthError('유효하지 않은 파트너 코드입니다. 아임오케이에 문의해주세요.');
+            }
+        } catch (error) {
+            console.error('인증 오류:', error);
+            setAuthError('오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
         }
     };
 
@@ -86,6 +96,16 @@ export default function OrderView() {
         } catch (error) {
             console.error(error);
             alert('신청 중 오류가 발생했습니다.');
+        }
+    };
+
+    const handlePhoneBlur = async () => {
+        if (partnerId && phone) {
+            try {
+                await PartnerRepository.updatePartnerPhone(partnerId, phone);
+            } catch (error) {
+                console.error('연락처 업데이트 실패:', error);
+            }
         }
     };
 
@@ -371,7 +391,7 @@ export default function OrderView() {
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-2">담당자 연락처</label>
-                                <input required type="tel" className="w-full px-4 py-3.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-orange-500 outline-none bg-slate-50 focus:bg-white transition-colors" placeholder="010-0000-0000" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                                <input required type="tel" className="w-full px-4 py-3.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-orange-500 outline-none bg-slate-50 focus:bg-white transition-colors" placeholder="010-0000-0000" value={phone} onChange={(e) => setPhone(e.target.value)} onBlur={handlePhoneBlur} />
                             </div>
                         </div>
                     </div>

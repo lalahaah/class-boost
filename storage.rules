@@ -1,0 +1,9 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      // 테스트 모드: 누구나 읽고 쓰기 가능
+      allow read, write: if true;
+    }
+  }
+}
