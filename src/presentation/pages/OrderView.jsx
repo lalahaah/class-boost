@@ -11,6 +11,14 @@ import { StorageService } from '../../data/StorageService';
 
 export default function OrderView() {
     const navigate = useNavigate();
+    const [partnerRequests, setPartnerRequests] = useState([]);
+
+    useEffect(() => {
+        const unsubscribe = PartnerRepository.subscribeToPartners((data) => {
+            setPartnerRequests(data);
+        });
+        return () => unsubscribe();
+    }, []);
 
     const [authCode, setAuthCode] = useState('');
     const [authError, setAuthError] = useState('');
@@ -96,16 +104,6 @@ export default function OrderView() {
         } catch (error) {
             console.error(error);
             alert('신청 중 오류가 발생했습니다.');
-        }
-    };
-
-    const handlePhoneBlur = async () => {
-        if (partnerId && phone) {
-            try {
-                await PartnerRepository.updatePartnerPhone(partnerId, phone);
-            } catch (error) {
-                console.error('연락처 업데이트 실패:', error);
-            }
         }
     };
 
@@ -391,7 +389,7 @@ export default function OrderView() {
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-2">담당자 연락처</label>
-                                <input required type="tel" className="w-full px-4 py-3.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-orange-500 outline-none bg-slate-50 focus:bg-white transition-colors" placeholder="010-0000-0000" value={phone} onChange={(e) => setPhone(e.target.value)} onBlur={handlePhoneBlur} />
+                                <input required type="tel" className="w-full px-4 py-3.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-orange-500 outline-none bg-slate-50 focus:bg-white transition-colors" placeholder="010-0000-0000" value={phone} onChange={(e) => setPhone(e.target.value)} onBlur={() => { if (partnerId && phone) { PartnerRepository.updatePartnerPhone(partnerId, phone).catch(console.error); } }} />
                             </div>
                         </div>
                     </div>
