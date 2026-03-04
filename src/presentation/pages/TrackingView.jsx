@@ -29,7 +29,7 @@ export default function TrackingView() {
         if (isAuthorized) {
             // Filter orders belonging to this partner
             const matchedOrders = allOrders.filter(order => order.partnerId === partnerId);
-            setActiveOrders(matchedOrders.sort((a, b) => b.createdAt.toDate() - a.createdAt.toDate()));
+            setActiveOrders(matchedOrders.sort((a, b) => b.createdAt - a.createdAt));
         }
     }, [allOrders, isAuthorized, partnerId]);
 
@@ -160,7 +160,7 @@ export default function TrackingView() {
                             <div className="border-b border-slate-100 p-6 flex flex-col md:flex-row justify-between items-start md:items-center bg-slate-50">
                                 <div>
                                     <div className="text-xs font-bold text-slate-500 mb-1">
-                                        주문일시: {order.createdAt?.toDate().toLocaleString('ko-KR')}
+                                        주문일시: {order.createdAt?.toLocaleString('ko-KR')}
                                     </div>
                                     <h3 className="text-lg font-bold text-slate-900 flex items-center">
                                         주문번호: {order.customId || order.id.substring(0, 8).toUpperCase()}
