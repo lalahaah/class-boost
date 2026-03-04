@@ -85,14 +85,21 @@ export default function AdminView() {
             const generatedCode = `PTN${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
             await PartnerRepository.approvePartner(partnerId, generatedCode);
             alert(`승인 완료 (발급코드: ${generatedCode})`);
-        } catch (e) { alert('승인 실패'); }
+        } catch (e) {
+            console.error(e);
+            alert('승인 실패: ' + e.message);
+        }
     };
 
     const handleRejectPartner = async (partnerId) => {
         if (window.confirm('정말 반려하시겠습니까?')) {
             try {
                 await PartnerRepository.rejectPartner(partnerId);
-            } catch (e) { alert('반려 실패'); }
+                alert('반려되었습니다.');
+            } catch (e) {
+                console.error(e);
+                alert('반려 실패: ' + e.message);
+            }
         }
     };
 

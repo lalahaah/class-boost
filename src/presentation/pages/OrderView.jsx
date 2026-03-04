@@ -258,6 +258,7 @@ export default function OrderView() {
             await OrderRepository.createOrder({
                 academyName,
                 phone,
+                partnerId,
                 items,
                 designRequestText: text,
                 designFileUrl: downloadURL,

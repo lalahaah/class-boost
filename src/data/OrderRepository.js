@@ -31,6 +31,7 @@ export const OrderRepository = {
 
         await addDoc(collection(db, ORDERS_COLLECTION), {
             customId, // UI에서 보여줄 용도
+            partnerId: orderData.partnerId || null,
             academyName: orderData.academyName,
             phone: orderData.phone,
             items: orderData.items,
