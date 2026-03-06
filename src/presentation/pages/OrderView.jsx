@@ -210,7 +210,7 @@ export default function OrderView() {
                   <table style="width:100%; font-size: 14px; line-height: 1.6;">
                     <tr><td style="width: 80px; font-weight: bold;">공급자</td><td>주식회사 아임오케이 (imokayy Co., Ltd.)</td></tr>
                     <tr><td style="font-weight: bold;">사업자번호</td><td>841-88-02576</td></tr>
-                    <tr><td style="font-weight: bold;">대표이사</td><td>손미선 (인)</td></tr>
+                    <tr><td style="font-weight: bold;">대표이사</td><td>손미선 <span style="position: relative; display: inline-block; margin-left: 10px;">(인)<img src="/seal.png" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 45px; height: 45px; opacity: 0.9;" /></span></td></tr>
                     <tr><td style="font-weight: bold;">주소</td><td>경기도 화성시 동탄기흥로 585, 201동 207호</td></tr>
                     <tr><td style="font-weight: bold;">고객센터</td><td>010-5955-4936</td></tr>
                   </table>
