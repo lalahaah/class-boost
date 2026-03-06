@@ -452,7 +452,7 @@ export default function OrderView() {
                         <Calculator className="h-6 w-6 md:h-8 md:w-8 text-orange-600" />
                     </div>
                     <div>
-                        <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight mb-1">간편 견적 및 발주 폼</h2>
+                        <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight mb-1">간편 견적 및 디자인 요청 폼</h2>
                         <p className="text-slate-500 font-medium text-xs md:text-base">필요한 품목을 장바구니에 담아 견적을 산출하세요.</p>
                     </div>
                 </div>
@@ -609,7 +609,7 @@ export default function OrderView() {
                                 <span className="flex items-center justify-center italic">
                                     <span className="animate-pulse mr-2">요청 전송 중...</span>
                                 </span>
-                            ) : (totals.hasUnpricedCustom ? '맞춤 견적 요청하기' : '디자인 시안 요청하기')}
+                            ) : (totals.hasUnpricedCustom ? '맞춤 견적 및 시안 요청하기' : '디자인 시안 요청하기')}
                         </button>
 
                         <button onClick={handlePrintQuote} className="cursor-pointer w-full mt-3 bg-slate-800/50 hover:bg-slate-800 text-slate-300 font-bold py-3.5 rounded-xl transition-all flex items-center justify-center border border-slate-700 shadow-sm backdrop-blur-sm">

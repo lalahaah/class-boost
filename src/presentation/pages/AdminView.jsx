@@ -49,15 +49,14 @@ export default function AdminView() {
         }
     };
 
-    const handleUpdateOrderPrice = async (orderId, total, items) => {
+    const handleUpdateOrderPrice = async (orderId, total, items, e) => {
+        if (e) e.preventDefault();
         try {
-            // In a full app, you might want to show a modal to edit the custom sizes or individual prices.
-            // Here we just update the total.
-            const price = prompt('새로운 총 결제금액을 입력하세요 (숫자만, 배송비 포함 / VAT 별도):', total === '담당자 확인 중' ? '' : total);
-            if (price !== null) {
+            const price = window.prompt('새로운 총 결제금액을 입력하세요 (숫자만, 배송비 포함 / VAT 별도):', total === '담당자 확인 중' ? '' : total);
+            if (price !== null && price.trim() !== '') {
                 await OrderRepository.updateOrderTotal(orderId, Number(price));
             }
-        } catch (e) { alert('금액 수정 실패'); }
+        } catch (err) { alert('금액 수정 실패'); }
     };
 
     const [isUploadingDraft, setIsUploadingDraft] = useState({});
@@ -248,8 +247,13 @@ export default function AdminView() {
                                                     <Edit3 className="w-3 h-3 mr-1" /> 금액 산정하기
                                                 </button>
                                             ) : (
-                                                <div className="flex flex-col items-center">
-                                                    <div className="font-bold text-slate-900">{typeof order.total === 'number' ? `${order.total.toLocaleString()}원` : order.total}</div>
+                                                <div className="flex flex-col items-center relative group">
+                                                    <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                                                        {typeof order.total === 'number' ? `${order.total.toLocaleString()}원` : order.total}
+                                                        <button onClick={() => handleUpdateOrderPrice(order.id, order.total, order.items)} className="text-slate-400 hover:text-orange-600 transition-colors opacity-0 group-hover:opacity-100" title="금액 수정">
+                                                            <Edit3 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
                                                     {typeof order.total === 'number' && <div className="text-[9px] text-slate-400 font-normal mt-0.5">VAT 별도</div>}
                                                 </div>
                                             )}

@@ -526,13 +526,13 @@ export default function TrackingView() {
                                         <div className="flex flex-col md:flex-row gap-4 items-center justify-between text-sm bg-slate-50 p-6 rounded-2xl border border-slate-100 shadow-sm transition-all animate-in fade-in slide-in-from-bottom-2">
                                             <div className="flex items-center text-slate-500 font-medium">
                                                 <div className="w-10 h-10 bg-white rounded-xl shadow-md border border-slate-200 flex items-center justify-center mr-4">
-                                                    <RefreshCcw className="w-5 h-5 text-indigo-500 animate-spin" />
+                                                    <RefreshCcw className={`w-5 h-5 text-indigo-500 ${order.total === '담당자 확인 중' ? 'animate-spin' : ''}`} />
                                                 </div>
                                                 <div>
                                                     <p className="font-bold text-slate-800">
                                                         {order.total === '담당자 확인 중'
                                                             ? '담당자가 견적 금액을 확인 중입니다'
-                                                            : '담당 디자이너가 배정되고 있습니다'}
+                                                            : (order.items.some(i => i.size === 'CUSTOM') ? '맞춤 견적 금액 산정이 완료되었습니다' : '담당 디자이너가 배정되고 있습니다')}
                                                     </p>
                                                     <p className="text-xs text-slate-400">
                                                         {order.total === '담당자 확인 중'

@@ -76,12 +76,12 @@ export default function LandingView() {
                         <div>
                             <div className="bg-slate-800 text-white rounded-full flex items-center justify-center font-extrabold text-2xl mx-auto mb-6 shadow-lg shadow-slate-800/30 ring-8 ring-white w-16 h-16">1</div>
                             <h3 className="text-xl font-bold text-slate-900 mb-3">파일 업로드</h3>
-                            <p className="text-slate-600">학원 로고나 기존 현수막 디자인 파일을 올려주세요. 전문 디자이너가 자석 현수막 규격에 맞게 최적화합니다.</p>
+                            <p className="text-slate-600">학원 로고나 현수막 디자인 파일을 올려주세요. 전문 디자이너가 자석 현수막 규격에 맞게 최적화합니다.</p>
                         </div>
                         <div>
                             <div className="bg-slate-800 text-white rounded-full flex items-center justify-center font-extrabold text-2xl mx-auto mb-6 shadow-lg shadow-slate-800/30 ring-8 ring-white w-16 h-16">2</div>
                             <h3 className="text-xl font-bold text-slate-900 mb-3">스마트 시안 컨펌</h3>
-                            <p className="text-slate-600">카카오톡으로 전송된 링크를 통해 모바일에서 편리하게 시안을 확인하고, 터치 한 번으로 확정합니다.</p>
+                            <p className="text-slate-600">문자(카카오톡)로 전송된 링크를 통해 모바일에서 편리하게 시안을 확인하고, 터치 한 번으로 확정합니다.</p>
                         </div>
                         <div>
                             <div className="bg-orange-500 text-white rounded-full flex items-center justify-center font-extrabold text-2xl mx-auto mb-6 shadow-lg shadow-orange-500/30 ring-8 ring-white w-16 h-16">3</div>
