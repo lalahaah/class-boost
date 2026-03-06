@@ -7,6 +7,8 @@ import LandingView from './pages/LandingView';
 import OrderView from './pages/OrderView';
 import TrackingView from './pages/TrackingView';
 import AdminView from './pages/AdminView';
+import TermsView from './pages/TermsView';
+import PrivacyView from './pages/PrivacyView';
 
 export default function App() {
     return (
@@ -19,6 +21,8 @@ export default function App() {
                         <Route path="/order" element={<OrderView />} />
                         <Route path="/tracking" element={<TrackingView />} />
                         <Route path="/admin" element={<AdminView />} />
+                        <Route path="/terms" element={<TermsView />} />
+                        <Route path="/privacy" element={<PrivacyView />} />
                     </Routes>
                 </main>
                 <Footer />

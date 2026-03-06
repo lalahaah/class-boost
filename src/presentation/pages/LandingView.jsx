@@ -1,9 +1,11 @@
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronRight, Download, Scissors, Wind, ShieldCheck, Star, MousePointerClick } from 'lucide-react';
+import { ChevronRight, Download, Scissors, Wind, ShieldCheck, Star, MousePointerClick, Zap, MessageCircle, X } from 'lucide-react';
 import GridPattern from '../components/GridPattern';
 
 export default function LandingView() {
     const navigate = useNavigate();
+    const [showContactModal, setShowContactModal] = useState(false);
 
     return (
         <div className="animate-in fade-in duration-500">
@@ -62,6 +64,86 @@ export default function LandingView() {
                 </div>
             </div>
 
+            {/* Process Section (발주 3단계 안내) */}
+            <div className="py-24 bg-slate-50 relative z-20 border-t border-slate-200">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="text-center mb-16">
+                        <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 tracking-tight">
+                            발주부터 배송까지, 압도적으로 쉽습니다.
+                        </h2>
+                    </div>
+                    <div className="grid md:grid-cols-3 gap-8 text-center">
+                        <div>
+                            <div className="bg-slate-800 text-white rounded-full flex items-center justify-center font-extrabold text-2xl mx-auto mb-6 shadow-lg shadow-slate-800/30 ring-8 ring-white w-16 h-16">1</div>
+                            <h3 className="text-xl font-bold text-slate-900 mb-3">파일 업로드</h3>
+                            <p className="text-slate-600">학원 로고나 기존 현수막 디자인 파일을 올려주세요. 전문 디자이너가 자석 현수막 규격에 맞게 최적화합니다.</p>
+                        </div>
+                        <div>
+                            <div className="bg-slate-800 text-white rounded-full flex items-center justify-center font-extrabold text-2xl mx-auto mb-6 shadow-lg shadow-slate-800/30 ring-8 ring-white w-16 h-16">2</div>
+                            <h3 className="text-xl font-bold text-slate-900 mb-3">스마트 시안 컨펌</h3>
+                            <p className="text-slate-600">카카오톡으로 전송된 링크를 통해 모바일에서 편리하게 시안을 확인하고, 터치 한 번으로 확정합니다.</p>
+                        </div>
+                        <div>
+                            <div className="bg-orange-500 text-white rounded-full flex items-center justify-center font-extrabold text-2xl mx-auto mb-6 shadow-lg shadow-orange-500/30 ring-8 ring-white w-16 h-16">3</div>
+                            <h3 className="text-xl font-bold text-slate-900 mb-3">결제 및 특급 배송</h3>
+                            <p className="text-slate-600">최종 승인이 완료되면 결제를 진행합니다. 최고급 원단으로 당일/익일 제작되어 안전하게 배송됩니다.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* About Agency (I'm OK Intro) Section - 종합 광고 대행사 어필 */}
+            <div className="py-24 bg-slate-50 border-t border-slate-200">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200 flex flex-col md:flex-row group hover:shadow-2xl transition-shadow duration-500">
+
+                        {/* 좌측 텍스트 영역 (Dark) */}
+                        <div className="md:w-5/12 bg-slate-900 p-10 sm:p-12 flex flex-col justify-center relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-40 h-40 bg-orange-500/20 rounded-full blur-3xl group-hover:bg-orange-500/30 transition-colors duration-500"></div>
+                            <span className="text-orange-400 font-extrabold tracking-widest text-xs mb-3 uppercase flex items-center">
+                                <div className="w-2 h-2 rounded-full bg-orange-500 mr-2 animate-pulse"></div> Marketing Agency
+                            </span>
+                            <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-5 tracking-tight leading-tight">현수막은 시작일 뿐입니다.</h2>
+                            <p className="text-slate-400 leading-relaxed font-medium">
+                                주식회사 <strong className="text-white">아임오케이</strong>는 오프라인 발주처를 넘어, 원장님의 원생 모집을 책임지는 <strong className="text-white">학원 전문 종합 광고 대행사</strong>입니다. <br /><br />
+                                현수막 디자인부터 우리 동네 학부모 타겟 온라인 광고까지 원스톱으로 맡겨보세요.
+                            </p>
+                        </div>
+
+                        {/* 우측 서비스 영역 (Light) */}
+                        <div className="md:w-7/12 p-10 sm:p-12 flex flex-col justify-center bg-white">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-10">
+                                <div className="flex items-start">
+                                    <div className="w-12 h-12 rounded-xl bg-orange-50 flex items-center justify-center mr-4 shrink-0 border border-orange-100">
+                                        <Zap className="h-6 w-6 text-orange-500" />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-extrabold text-slate-900 mb-1.5 text-lg">퍼포먼스 마케팅</h4>
+                                        <p className="text-sm text-slate-500 font-medium leading-relaxed">당근마켓, 인스타그램, 네이버 등 지역 맘카페/학부모 정밀 타겟팅 광고 세팅 및 운영</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-start">
+                                    <div className="w-12 h-12 rounded-xl bg-indigo-50 flex items-center justify-center mr-4 shrink-0 border border-indigo-100">
+                                        <MessageCircle className="h-6 w-6 text-indigo-500" />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-extrabold text-slate-900 mb-1.5 text-lg">공식 채널/콘텐츠 운영</h4>
+                                        <p className="text-sm text-slate-500 font-medium leading-relaxed">등록 전환율을 높이는 학원 공식 블로그 세팅 및 전문 카피라이터의 정기 콘텐츠 발행</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowContactModal(true)}
+                                className="cursor-pointer w-full sm:w-max bg-white border-2 border-slate-200 hover:border-orange-500 hover:bg-orange-50 text-slate-800 hover:text-orange-700 px-8 py-4 rounded-xl font-extrabold transition-all shadow-sm flex items-center justify-center"
+                            >
+                                학원 광고/마케팅 대행 문의하기 <ChevronRight className="ml-2 h-5 w-5" />
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
             <div className="relative overflow-hidden bg-slate-900 py-24 sm:py-32">
                 <GridPattern width={40} height={40} x={-1} y={-1} className="fill-slate-700/30 stroke-slate-700/30 [mask-image:linear-gradient(to_top,white,transparent)]" squares={[[2, 2], [6, 4], [10, 1], [14, 6], [18, 3], [3, 8], [11, 7]]} />
                 <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -73,6 +155,48 @@ export default function LandingView() {
                     </button>
                 </div>
             </div>
+
+            {/* Contact Modal */}
+            {showContactModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 text-left">
+                        <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                            <h3 className="text-xl font-bold text-slate-900">학원 광고/마케팅 대행 문의</h3>
+                            <button onClick={() => setShowContactModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-full hover:bg-slate-200 cursor-pointer">
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-6">
+                            <div>
+                                <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">고객센터</h4>
+                                <div className="space-y-3 text-slate-700 font-medium">
+                                    <p className="flex justify-between items-center"><span className="text-slate-500">전화</span> <span>010-5955-4936</span></p>
+                                    <p className="flex justify-between items-center"><span className="text-slate-500">이메일</span> <span>iamok9@naver.com</span></p>
+                                    <p className="flex justify-between items-center"><span className="text-slate-500">운영시간</span> <span>평일 10:00~19:00</span></p>
+                                </div>
+                            </div>
+                            <div className="h-px bg-slate-100 w-full"></div>
+                            <div>
+                                <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">회사 정보</h4>
+                                <div className="space-y-1 text-slate-600 text-sm">
+                                    <p className="text-base text-slate-800 mb-2"><strong className="font-bold">주식회사 아임오케이</strong> <span className="text-slate-500">(imokayy Co., Ltd.)</span></p>
+                                    <p>대표이사 : 손미선</p>
+                                    <p>사업자등록번호 : 841-88-02576</p>
+                                    <p>경기도 화성시 동탄기흥로 585, 201동 207호</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-6 bg-slate-50 border-t border-slate-100">
+                            <button
+                                onClick={() => setShowContactModal(false)}
+                                className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-xl transition-colors shadow-sm cursor-pointer text-lg"
+                            >
+                                닫기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
