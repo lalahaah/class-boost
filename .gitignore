@@ -3,3 +3,8 @@ dist
 dist-ssr
 *.local
 .env
+.env.*
+!.env.example
+.DS_Store
+.eslintcache
+add_test_partner.js

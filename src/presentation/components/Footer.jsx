@@ -1,12 +1,18 @@
+import { useNavigate } from 'react-router-dom';
 import { Rocket } from 'lucide-react';
 
 export default function Footer() {
+    const navigate = useNavigate();
+
     return (
         <footer className="bg-slate-900 text-slate-400 py-12 border-t border-slate-800 mt-auto">
             <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div>
-                        <h3 className="text-white font-extrabold text-xl mb-4 flex items-center">
+                        <h3
+                            className="text-white font-extrabold text-xl mb-4 flex items-center cursor-pointer hover:text-orange-400 transition-colors w-fit"
+                            onClick={() => navigate('/')}
+                        >
                             <div className="w-6 h-6 bg-orange-500 rounded flex items-center justify-center mr-2"><Rocket className="h-4 w-4 text-white" /></div>
                             ClassBoost
                         </h3>

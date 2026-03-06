@@ -11,18 +11,23 @@ export const DATE_BANNER_SIZES = ['500*400 (날짜/보조용)', '600*460 (날짜
 export const PROMO_SIZES = ['600*1800 (세로형 배너)', '600*450 (포스터)', '600*900 (포스터)'];
 
 export const STATUS_MAP = {
-    'WAIT_QUOTE': '견적대기', 'CHECK_QUOTE': '견적확인요청', 'NEW': '신규접수',
-    'WAIT_DESIGN': '시안대기', 'DESIGN': '시안작업', 'WAIT_CONFIRM': '시안확인요청', 'CONFIRM_DESIGN': '시안컨펌요청', 'MODIFY_REQUEST': '수정요청(재작업)',
-    'APPROVED': '제작진행', 'PRODUCING': '제작중', 'SHIPPING': '배송중/출발', 'DONE': '완료', 'CANCELLED': '주문취소'
+    'NEW': '신규접수',
+    'DESIGN': '시안작업',
+    'WAIT_CONFIRM': '시안 확인요청',
+    'MODIFY_REQUEST': '수정요청',
+    'APPROVED': '제작중',
+    'SHIPPING': '배송중',
+    'DONE': '완료',
+    'CANCELLED': '주문취소'
 };
 
 export const STATUS_COLORS = {
-    'WAIT_QUOTE': 'bg-orange-100 text-orange-800',
-    'NEW': 'bg-blue-100 text-blue-800',
-    'DESIGN': 'bg-indigo-100 text-indigo-800',
-    'WAIT_CONFIRM': 'bg-purple-100 text-purple-800',
-    'APPROVED': 'bg-emerald-100 text-emerald-800',
-    'SHIPPING': 'bg-slate-100 text-slate-800',
-    'DONE': 'bg-green-100 text-green-800',
-    'CANCELLED': 'bg-red-100 text-red-800'
+    'NEW': 'bg-blue-100 text-blue-800 border-blue-200',
+    'DESIGN': 'bg-indigo-100 text-indigo-800 border-indigo-200',
+    'WAIT_CONFIRM': 'bg-purple-100 text-purple-800 border-purple-200',
+    'MODIFY_REQUEST': 'bg-pink-100 text-pink-800 border-pink-200',
+    'APPROVED': 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    'SHIPPING': 'bg-slate-100 text-slate-800 border-slate-200',
+    'DONE': 'bg-green-100 text-green-800 border-green-200',
+    'CANCELLED': 'bg-red-100 text-red-800 border-red-200'
 };

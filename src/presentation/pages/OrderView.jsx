@@ -14,6 +14,17 @@ export default function OrderView() {
     const [partnerRequests, setPartnerRequests] = useState([]);
 
     useEffect(() => {
+        // 세션 유지 로직 추가
+        const savedPartner = localStorage.getItem('partnerSession');
+        if (savedPartner) {
+            const { id, academyName: savedName, code, phone: savedPhone } = JSON.parse(savedPartner);
+            setIsAuthorized(true);
+            setPartnerId(id);
+            setAcademyName(savedName);
+            setAuthCode(code);
+            if (savedPhone) setPhone(savedPhone);
+        }
+
         const unsubscribe = PartnerRepository.subscribeToPartners((data) => {
             setPartnerRequests(data);
         });
@@ -32,7 +43,7 @@ export default function OrderView() {
     const [text, setText] = useState('');
     const [file, setFile] = useState(null);
     const [isSubmitted, setIsSubmitted] = useState(false);
-    const [isAuthorized, setIsAuthorized] = useState(false);
+    const [isAuthorized, setIsAuthorized] = useState(() => !!localStorage.getItem('partnerSession'));
     const [isUploading, setIsUploading] = useState(false);
 
     const calculateTotals = (cartItems) => {
@@ -52,11 +63,13 @@ export default function OrderView() {
 
         const requiredBoxes = Math.ceil(totalQty / 3);
         const shippingFee = totalQty > 0 ? requiredBoxes * 8000 : 0;
+        const supplyPrice = productTotal + shippingFee;
+        const finalTotal = hasUnpricedCustom ? null : Math.floor(supplyPrice);
 
         return {
             productTotal: hasUnpricedCustom ? null : productTotal,
             shippingFee,
-            finalTotal: hasUnpricedCustom ? null : productTotal + shippingFee,
+            finalTotal,
             hasUnpricedCustom, totalQty, requiredBoxes
         };
     };
@@ -69,19 +82,30 @@ export default function OrderView() {
 
         // MVP 데모용 하드코딩 패스워드
         if (authCode.toUpperCase() === 'VIP2026') {
+            const demoPartner = { id: 'DEMO', academyName: '체험용(VIP)', code: 'VIP2026' };
             setIsAuthorized(true);
             setAuthError('');
+            setPartnerId(demoPartner.id);
+            setAcademyName(demoPartner.academyName);
+            localStorage.setItem('partnerSession', JSON.stringify(demoPartner));
             return;
         }
 
         try {
             const partnerData = await PartnerRepository.verifyPartnerCode(authCode.toUpperCase());
             if (partnerData) {
+                const partnerSession = {
+                    id: partnerData.id,
+                    academyName: partnerData.academyName,
+                    code: authCode.toUpperCase(),
+                    phone: partnerData.phone
+                };
                 setIsAuthorized(true);
                 setAuthError('');
-                setPartnerId(partnerData.id);
+                setPartnerId(partnerSession.id);
                 if (partnerData.academyName) setAcademyName(partnerData.academyName);
                 if (partnerData.phone) setPhone(partnerData.phone);
+                localStorage.setItem('partnerSession', JSON.stringify(partnerSession));
             } else {
                 setAuthError('유효하지 않은 파트너 코드입니다. 아임오케이에 문의해주세요.');
             }
@@ -124,7 +148,7 @@ export default function OrderView() {
 
         const supplyPrice = totals.productTotal + totals.shippingFee;
         const vat = totals.hasUnpricedCustom ? 0 : Math.floor(supplyPrice * 0.1);
-        const grandTotal = totals.hasUnpricedCustom ? 0 : supplyPrice + vat;
+        const grandTotal = totals.hasUnpricedCustom ? 0 : supplyPrice;
 
         const itemsHtml = items.map((item, index) => {
             const sizeStr = item.size === 'CUSTOM' ? `${item.customWidth}*${item.customHeight} (별도제작)` : item.size;
@@ -199,7 +223,7 @@ export default function OrderView() {
               * 직접 입력하신 규격이 포함되어 있어, 정확한 총 합계 금액은 담당자 확인 후 재안내 드립니다.
             </div>` :
                 `<div class="total-box">
-              합계금액: ₩ ${grandTotal.toLocaleString()} (VAT 포함)
+              합계금액: ₩ ${grandTotal.toLocaleString()} (VAT 별도)
             </div>`
             }
           <table class="item-table">
@@ -219,9 +243,9 @@ export default function OrderView() {
                 <td style="text-align: right; padding: 10px; border: 1px solid #cbd5e1;">${totals.shippingFee.toLocaleString()}</td>
               </tr>
               ${!totals.hasUnpricedCustom ? `
-              <tr>
-                <td colspan="4" style="text-align: right; padding: 10px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">부가가치세 (VAT 10%)</td>
-                <td style="text-align: right; padding: 10px; border: 1px solid #cbd5e1;">${vat.toLocaleString()}</td>
+              <tr style="background-color: #f8fafc; font-weight: bold;">
+                <td colspan="4" style="text-align: right; padding: 10px; border: 1px solid #cbd5e1;">최종 합계 (VAT 별도)</td>
+                <td style="text-align: right; padding: 10px; border: 1px solid #cbd5e1;">₩ ${grandTotal.toLocaleString()}</td>
               </tr>
               ` : ''}
             </tbody>
@@ -264,7 +288,7 @@ export default function OrderView() {
                 designFileUrl: downloadURL,
                 total: totals.hasUnpricedCustom ? '담당자 확인 중' : totals.finalTotal,
                 shippingFee: totals.shippingFee,
-                status: totals.hasUnpricedCustom ? 'WAIT_QUOTE' : 'NEW'
+                status: 'NEW'
             });
 
             setIsUploading(false);
@@ -278,67 +302,106 @@ export default function OrderView() {
 
     if (!isAuthorized) {
         return (
-            <div className="max-w-md mx-auto mt-20 bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="max-w-md mx-auto mt-24 bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-500">
                 <div className="h-2 w-full bg-gradient-to-r from-orange-400 to-orange-600"></div>
-                <div className="p-8 text-center relative">
+                <div className="p-10 text-center relative">
                     {authMode === 'login' && (
-                        <div className="animate-in fade-in slide-in-from-right-4">
-                            <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-slate-200 shadow-sm">
-                                <Lock className="h-8 w-8 text-slate-700" />
-                            </div>
-                            <h2 className="text-2xl font-extrabold text-slate-900 mb-2 tracking-tight">파트너 전용 공간</h2>
-                            <p className="text-slate-500 mb-8 text-sm">경쟁력 있는 단가 제공을 위해<br />사전 승인된 파트너에게만 견적을 공개합니다.</p>
-                            <form onSubmit={handleAuthSubmit} className="space-y-4">
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><KeyRound className="h-5 w-5 text-slate-400" /></div>
-                                    <input type="text" className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-orange-500 outline-none font-bold tracking-widest uppercase text-center text-slate-900 bg-slate-50 focus:bg-white transition-colors" placeholder="코드를 입력하세요" value={authCode} onChange={(e) => setAuthCode(e.target.value)} />
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                            {/* Lock Icon Box */}
+                            <div className="w-24 h-24 bg-slate-50 rounded-[2rem] flex items-center justify-center mx-auto mb-8 border border-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] ring-8 ring-slate-50/50">
+                                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-100">
+                                    <Lock className="h-8 w-8 text-slate-700" strokeWidth={1.5} />
                                 </div>
-                                {authError && <p className="text-red-500 text-sm text-left flex items-center"><AlertCircle className="w-4 h-4 mr-1" /> {authError}</p>}
-                                <button type="submit" className="cursor-pointer w-full bg-slate-900 text-white px-6 py-4 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-md hover:shadow-lg">인증하고 견적 확인하기</button>
+                            </div>
+
+                            {/* Title & Subtitle */}
+                            <h2 className="text-[1.75rem] font-extrabold text-slate-900 mb-3 tracking-tight">파트너 전용 공간</h2>
+                            <p className="text-slate-500 mb-10 text-sm leading-relaxed font-medium">
+                                경쟁력 있는 단가 제공과 발주를 위해<br />
+                                <span className="text-slate-400">사전 승인된 파트너에게만 견적을 공개합니다.</span>
+                            </p>
+
+                            {/* Form */}
+                            <form onSubmit={handleAuthSubmit} className="space-y-4">
+                                <div className="relative group">
+                                    <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                                        <KeyRound className="h-5 w-5 text-slate-300 group-focus-within:text-orange-500 transition-colors" />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none font-bold tracking-tight text-center text-slate-900 bg-slate-50/50 focus:bg-white transition-all text-lg placeholder:text-slate-300 uppercase"
+                                        placeholder="코드를 입력하세요"
+                                        value={authCode}
+                                        onChange={(e) => setAuthCode(e.target.value)}
+                                    />
+                                </div>
+                                {authError && <p className="text-red-500 text-sm text-center font-medium animate-pulse">{authError}</p>}
+
+                                <button type="submit" className="cursor-pointer w-full bg-[#0f172a] text-white px-6 py-5 rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-xl hover:shadow-orange-500/10 active:scale-[0.98] mt-2 text-lg">
+                                    인증하고 견적 확인하기
+                                </button>
                             </form>
-                            <div className="mt-8 pt-6 border-t border-slate-100 flex flex-col gap-4 text-sm">
-                                <button onClick={() => setAuthMode('request')} className="cursor-pointer text-orange-600 font-bold hover:text-orange-700 flex justify-center items-center"><Star className="w-4 h-4 mr-1" /> 신규 파트너 신청하기</button>
-                                <button onClick={() => setAuthMode('find')} className="cursor-pointer text-slate-500 font-medium hover:text-slate-800">기존 파트너 코드를 잊어버리셨나요?</button>
+
+                            {/* Divider */}
+                            <div className="my-8 h-px bg-slate-100 w-full"></div>
+
+                            {/* Footer Links */}
+                            <div className="flex flex-col space-y-5">
+                                <button
+                                    type="button"
+                                    onClick={() => setAuthMode('request')}
+                                    className="flex items-center justify-center space-x-2 text-orange-600 font-extrabold hover:underline transition-all group mx-auto"
+                                >
+                                    <Star className="w-5 h-5 text-orange-500 fill-orange-500 group-hover:scale-110 transition-transform" />
+                                    <span>신규 파트너 신청하기</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setAuthMode('find')}
+                                    className="text-slate-400 text-[13px] font-medium hover:text-slate-600 transition-colors"
+                                >
+                                    기존 파트너 코드를 잊어버리셨나요?
+                                </button>
                             </div>
                         </div>
                     )}
 
                     {authMode === 'request' && (
-                        <div className="animate-in fade-in slide-in-from-right-4">
-                            <div className="w-16 h-16 bg-orange-50 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-orange-100">
-                                <Star className="h-8 w-8 text-orange-500" />
+                        <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+                            <div className="w-20 h-20 bg-orange-50 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6 border border-orange-100 shadow-sm">
+                                <Star className="h-10 w-10 text-orange-500 fill-orange-500" strokeWidth={1.5} />
                             </div>
-                            <h2 className="text-xl font-extrabold text-slate-900 mb-2">신규 파트너 신청</h2>
-                            <p className="text-slate-500 mb-6 text-sm">학원명과 연락처를 남겨주시면,<br />아임오케이 담당자가 승인 후 코드를 발급해 드립니다.</p>
+                            <h2 className="text-2xl font-extrabold text-slate-900 mb-3 tracking-tight">신규 파트너 신청</h2>
+                            <p className="text-slate-500 mb-8 text-sm leading-relaxed font-medium">학원명과 연락처를 남겨주시면,<br />아임오케이 담당자가 승인 후 코드를 발급해 드립니다.</p>
                             <form onSubmit={handleRequestPartner} className="space-y-4 text-left">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">학원명</label>
-                                    <input required type="text" className="w-full px-4 py-3 rounded-xl border border-slate-300 outline-none focus:ring-2 focus:ring-orange-500 bg-slate-50 focus:bg-white" placeholder="예: 정석수학학원" value={inquiryData.academyName} onChange={(e) => setInquiryData({ ...inquiryData, academyName: e.target.value })} />
+                                    <label className="block text-xs font-bold text-slate-700 mb-2 ml-1 uppercase tracking-wider">학원명</label>
+                                    <input required type="text" className="w-full px-5 py-4 rounded-2xl border border-slate-200 outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 bg-slate-50/50 focus:bg-white transition-all font-bold placeholder:text-slate-300" placeholder="예: 정석수학학원" value={inquiryData.academyName} onChange={(e) => setInquiryData({ ...inquiryData, academyName: e.target.value })} />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">원장님(담당자) 연락처</label>
-                                    <input required type="tel" className="w-full px-4 py-3 rounded-xl border border-slate-300 outline-none focus:ring-2 focus:ring-orange-500 bg-slate-50 focus:bg-white" placeholder="010-0000-0000" value={inquiryData.phone} onChange={(e) => setInquiryData({ ...inquiryData, phone: e.target.value })} />
+                                    <label className="block text-xs font-bold text-slate-700 mb-2 ml-1 uppercase tracking-wider">원장님(담당자) 연락처</label>
+                                    <input required type="tel" className="w-full px-5 py-4 rounded-2xl border border-slate-200 outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 bg-slate-50/50 focus:bg-white transition-all font-bold placeholder:text-slate-300" placeholder="010-0000-0000" value={inquiryData.phone} onChange={(e) => setInquiryData({ ...inquiryData, phone: e.target.value })} />
                                 </div>
-                                <button type="submit" className="cursor-pointer w-full bg-orange-600 text-white px-6 py-4 rounded-xl font-bold hover:bg-orange-700 shadow-md transition-colors mt-2">파트너 신청하기</button>
-                                <button type="button" onClick={() => setAuthMode('login')} className="cursor-pointer w-full bg-white border border-slate-200 text-slate-700 px-6 py-3.5 rounded-xl font-bold hover:bg-slate-50 transition-colors">뒤로 가기</button>
+                                <button type="submit" className="cursor-pointer w-full bg-orange-600 text-white px-6 py-5 rounded-2xl font-bold hover:bg-orange-700 shadow-xl shadow-orange-200 transition-all mt-4 text-lg active:scale-[0.98]">파트너 신청하기</button>
+                                <button type="button" onClick={() => setAuthMode('login')} className="cursor-pointer w-full bg-white border border-slate-200 text-slate-700 px-6 py-4 rounded-2xl font-bold hover:bg-slate-50 transition-colors text-base">뒤로 가기</button>
                             </form>
                         </div>
                     )}
 
                     {authMode === 'find' && (
-                        <div className="animate-in fade-in slide-in-from-left-4">
-                            <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-slate-200">
-                                <Search className="h-8 w-8 text-slate-600" />
+                        <div className="animate-in fade-in slide-in-from-left-4 duration-500">
+                            <div className="w-20 h-20 bg-slate-50 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6 border border-slate-100 shadow-sm">
+                                <Search className="h-10 w-10 text-slate-600" strokeWidth={1.5} />
                             </div>
-                            <h2 className="text-xl font-extrabold text-slate-900 mb-2">파트너 코드 찾기</h2>
-                            <p className="text-slate-500 mb-6 text-sm">기존에 등록하신 연락처를 입력하시면<br />카카오톡으로 코드를 다시 보내드립니다.</p>
+                            <h2 className="text-2xl font-extrabold text-slate-900 mb-3 tracking-tight">파트너 코드 찾기</h2>
+                            <p className="text-slate-500 mb-8 text-sm leading-relaxed font-medium">기존에 등록하신 연락처를 입력하시면<br />문자로 코드를 다시 보내드립니다.</p>
                             <form onSubmit={(e) => { e.preventDefault(); alert(`[발송 완료] 입력하신 연락처(${inquiryData.phone})로 코드를 다시 발송했습니다.\n(데모: VIP2026)`); setAuthMode('login'); setInquiryData({ academyName: '', phone: '' }); }} className="space-y-4 text-left">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1.5">등록된 연락처</label>
-                                    <input required type="tel" className="w-full px-4 py-3 rounded-xl border border-slate-300 outline-none focus:ring-2 focus:ring-slate-900 bg-slate-50 focus:bg-white" placeholder="010-0000-0000" value={inquiryData.phone} onChange={(e) => setInquiryData({ ...inquiryData, phone: e.target.value })} />
+                                    <label className="block text-xs font-bold text-slate-700 mb-2 ml-1 uppercase tracking-wider">등록된 연락처</label>
+                                    <input required type="tel" className="w-full px-5 py-4 rounded-2xl border border-slate-200 outline-none focus:ring-4 focus:ring-slate-900/10 focus:border-slate-900 bg-slate-50/50 focus:bg-white transition-all font-bold placeholder:text-slate-300" placeholder="010-0000-0000" value={inquiryData.phone} onChange={(e) => setInquiryData({ ...inquiryData, phone: e.target.value })} />
                                 </div>
-                                <button type="submit" className="cursor-pointer w-full bg-slate-900 text-white px-6 py-4 rounded-xl font-bold hover:bg-slate-800 shadow-md transition-colors mt-2">카카오톡으로 코드 받기</button>
-                                <button type="button" onClick={() => setAuthMode('login')} className="cursor-pointer w-full bg-white border border-slate-200 text-slate-700 px-6 py-3.5 rounded-xl font-bold hover:bg-slate-50 transition-colors">뒤로 가기</button>
+                                <button type="submit" className="cursor-pointer w-full bg-slate-900 text-white px-6 py-5 rounded-2xl font-bold hover:bg-slate-800 shadow-xl shadow-slate-200 transition-all mt-4 text-lg active:scale-[0.98]">카카오톡으로 코드 받기</button>
+                                <button type="button" onClick={() => setAuthMode('login')} className="cursor-pointer w-full bg-white border border-slate-200 text-slate-700 px-6 py-4 rounded-2xl font-bold hover:bg-slate-50 transition-colors text-base">뒤로 가기</button>
                             </form>
                         </div>
                     )}
@@ -353,37 +416,61 @@ export default function OrderView() {
                 <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6 border-8 border-green-100">
                     <Check className="h-10 w-10 text-green-600 stroke-[3]" />
                 </div>
-                <h2 className="text-3xl font-extrabold text-slate-900 mb-4 tracking-tight">
-                    {totals.hasUnpricedCustom ? '맞춤 견적 요청 접수 완료!' : '견적 및 시안 요청 접수 완료!'}
+                <h2 className="text-3xl font-bold text-slate-900 mb-4 tracking-tight">
+                    {totals.hasUnpricedCustom ? '신규 접수가 완료되었습니다!' : '디자인 시안 요청 완료!'}
                 </h2>
-                <p className="text-slate-600 mb-10 text-lg">
+                <p className="text-slate-600 mb-10 text-lg font-medium leading-relaxed whitespace-pre-line">
                     {totals.hasUnpricedCustom
-                        ? '요청하신 [직접 입력] 규격의 단가를 담당자가 확인 후 카카오톡으로 안내해 드립니다.'
-                        : '담당자가 디자인 확인 후 카카오톡으로 시안을 보내드립니다.'}
+                        ? '요청하신 [직접 입력] 규격의 단가를 담당자가 확인 중입니다.\n확인이 완료되면 문자로 안내해 드리며, 관리자 페이지에서 진행 상태를 확인하실 수 있습니다.'
+                        : '아임오케이를 이용해주셔서 감사합니다!\n시안이 완성되면 문자로 안내해 드리며, 관리자 페이지에서 확인하실 수 있습니다.'}
                 </p>
-                <button onClick={() => navigate('/')} className="cursor-pointer bg-slate-900 hover:bg-slate-800 text-white px-10 py-4 rounded-xl font-bold shadow-lg transition-all">메인으로 돌아가기</button>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    {!totals.hasUnpricedCustom && (
+                        <button
+                            onClick={handlePrintQuote}
+                            className="cursor-pointer bg-white border-2 border-slate-900 text-slate-900 px-8 py-4 rounded-xl font-bold hover:bg-slate-50 transition-all flex items-center justify-center shadow-sm"
+                        >
+                            <Printer className="w-5 h-5 mr-2" /> 견적서 PDF 다운로드
+                        </button>
+                    )}
+                    <button
+                        onClick={() => navigate('/tracking')}
+                        className="cursor-pointer bg-slate-900 hover:bg-slate-800 text-white px-8 py-4 rounded-xl font-bold shadow-xl transition-all flex items-center justify-center min-w-[200px]"
+                    >
+                        관리자 페이지로 가기
+                    </button>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="max-w-6xl mx-auto py-12 px-4 sm:px-6">
-            <div className="mb-8 flex items-center border-b border-slate-200 pb-6">
-                <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mr-4">
-                    <Calculator className="h-6 w-6 text-orange-600" />
+        <div className="max-w-6xl mx-auto py-8 md:py-12 px-4 sm:px-6">
+            <div className="mb-8 md:mb-10 flex flex-col md:flex-row items-center justify-between bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+                <div className="flex items-center mb-6 md:mb-0 w-full md:w-auto">
+                    <div className="w-12 h-12 md:w-16 md:h-16 bg-orange-100 rounded-2xl flex items-center justify-center mr-4 md:mr-6 border border-orange-200 shadow-sm shrink-0">
+                        <Calculator className="h-6 w-6 md:h-8 md:w-8 text-orange-600" />
+                    </div>
+                    <div>
+                        <h2 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight mb-1">간편 견적 및 발주 폼</h2>
+                        <p className="text-slate-500 font-medium text-xs md:text-base">필요한 품목을 장바구니에 담아 견적을 산출하세요.</p>
+                    </div>
                 </div>
-                <div>
-                    <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">간편 견적 및 발주 폼</h2>
-                    <p className="text-slate-500 mt-1 font-medium">필요한 품목을 장바구니에 담아 빠르고 투명하게 견적을 산출하세요.</p>
+                <div className="text-sm border border-slate-200 bg-slate-50 px-5 py-3 rounded-xl flex items-center shadow-sm">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full mr-3 animate-pulse"></div>
+                    <span className="text-slate-500 mr-2 font-medium">파트너 코드:</span>
+                    <span className="font-bold text-slate-900 tracking-wider">
+                        {authCode.toUpperCase()}
+                    </span>
                 </div>
             </div>
 
             <div className="flex flex-col lg:flex-row gap-8 items-start">
                 <div className="flex-1 space-y-6 w-full">
                     {/* 기본 정보 */}
-                    <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-                        <h3 className="text-lg font-bold mb-6 text-slate-900 flex items-center"><div className="w-2 h-6 bg-orange-500 rounded-full mr-3"></div>기본 정보</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white p-5 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+                        <h3 className="text-base md:text-lg font-bold mb-6 text-slate-900 flex items-center tracking-tight"><div className="w-2 h-6 bg-orange-500 rounded-full mr-3"></div>기본 정보</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-2">학원명</label>
                                 <input required type="text" className="w-full px-4 py-3.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-orange-500 outline-none bg-slate-50 focus:bg-white transition-colors" value={academyName} onChange={(e) => setAcademyName(e.target.value)} />
@@ -396,14 +483,14 @@ export default function OrderView() {
                     </div>
 
                     {/* 다중 선택 장바구니 */}
-                    <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+                    <div className="bg-white p-5 md:p-8 rounded-2xl shadow-sm border border-slate-200">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-bold text-slate-900 flex items-center"><div className="w-2 h-6 bg-orange-500 rounded-full mr-3"></div>주문 품목</h3>
-                            <span className="bg-slate-100 text-slate-700 px-3 py-1 rounded-full text-sm font-bold border border-slate-200">총 {totals.totalQty}개 담김</span>
+                            <h3 className="text-base md:text-lg font-bold text-slate-900 flex items-center tracking-tight"><div className="w-2 h-6 bg-orange-500 rounded-full mr-3"></div>주문 품목</h3>
+                            <span className="bg-slate-100 text-slate-700 px-3 py-1 rounded-full text-xs font-bold border border-slate-200">총 {totals.totalQty}개 담김</span>
                         </div>
                         <div className="space-y-4">
                             {items.map((item, index) => (
-                                <div key={item.id} className="p-5 bg-slate-50 rounded-xl border border-slate-200 flex flex-col md:flex-row gap-4 items-end">
+                                <div key={item.id} className="p-4 md:p-5 bg-slate-50 rounded-xl border border-slate-200 flex flex-col md:flex-row gap-4 items-end">
                                     <div className="flex-1 w-full">
                                         <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Item {index + 1} / 사이즈 선택</label>
                                         <select className="w-full px-4 py-3 rounded-lg border border-slate-300 outline-none bg-white focus:ring-2 focus:ring-orange-500 font-medium text-slate-800" value={item.size} onChange={(e) => updateItem(item.id, 'size', e.target.value)}>
@@ -437,8 +524,8 @@ export default function OrderView() {
                     </div>
 
                     {/* 파일 업로드 */}
-                    <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-                        <h3 className="text-lg font-bold mb-6 text-slate-900 flex items-center"><div className="w-2 h-6 bg-orange-500 rounded-full mr-3"></div>요청사항 및 파일 업로드</h3>
+                    <div className="bg-white p-5 md:p-8 rounded-2xl shadow-sm border border-slate-200">
+                        <h3 className="text-base md:text-lg font-bold mb-6 text-slate-900 flex items-center tracking-tight"><div className="w-2 h-6 bg-orange-500 rounded-full mr-3"></div>요청사항 및 파일 업로드</h3>
                         <div className="space-y-6">
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-2">디자인 요청사항</label>
@@ -463,10 +550,10 @@ export default function OrderView() {
 
                 {/* Sticky Summary Card */}
                 <div className="w-full lg:w-[380px] sticky top-24 shrink-0">
-                    <div className="bg-slate-900 rounded-2xl p-8 shadow-2xl border border-slate-800 text-white relative overflow-hidden">
+                    <div className="bg-slate-900 rounded-2xl p-6 md:p-8 shadow-2xl border border-slate-800 text-white relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl"></div>
 
-                        <h3 className="text-xl font-extrabold mb-6 pb-4 border-b border-slate-700 flex items-center tracking-tight">
+                        <h3 className="text-lg md:text-xl font-extrabold mb-6 pb-4 border-b border-slate-700 flex items-center tracking-tight">
                             <ShieldCheck className="h-6 w-6 mr-2 text-orange-500" /> 결제 예정 요약
                         </h3>
 
@@ -497,20 +584,41 @@ export default function OrderView() {
                                     {totals.hasUnpricedCustom ? (
                                         <span className="text-lg font-extrabold text-orange-400 block tracking-tight">담당자 확인 후 안내</span>
                                     ) : (
-                                        <span className="text-3xl font-extrabold text-white block tracking-tight">{totals.finalTotal.toLocaleString()}원</span>
+                                        <div className="text-right group">
+                                            <span className="text-4xl font-black text-white block tracking-tighter drop-shadow-sm group-hover:text-orange-400 transition-colors">
+                                                {totals.finalTotal.toLocaleString()}
+                                                <span className="text-lg font-bold ml-1">원</span>
+                                            </span>
+                                            <span className="text-[10px] bg-white/10 text-slate-300 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider backdrop-blur-sm border border-white/5">
+                                                VAT 별도
+                                            </span>
+                                        </div>
                                     )}
                                 </div>
                             </div>
                         </div>
-                        <button disabled={isUploading} onClick={handleSubmit} className={`cursor-pointer w-full font-extrabold text-lg py-5 rounded-xl shadow-xl transition-all transform hover:-translate-y-1 ${totals.hasUnpricedCustom ? 'bg-gradient-to-r from-orange-400 to-orange-600 text-white' : 'bg-orange-600 hover:bg-orange-500 text-white'} ${isUploading ? 'opacity-70 cursor-not-allowed' : ''}`}>
-                            {isUploading ? '업로드 중...' : (totals.hasUnpricedCustom ? '맞춤 견적 요청하기' : '시안 및 견적 요청하기')}
+                        <button
+                            disabled={isUploading}
+                            onClick={handleSubmit}
+                            className={`cursor-pointer w-full font-extrabold text-lg py-5 rounded-xl shadow-xl transition-all transform hover:-translate-y-1 active:scale-95 ${totals.hasUnpricedCustom
+                                ? 'bg-gradient-to-r from-orange-400 to-orange-600 text-white hover:from-orange-500 hover:to-orange-700'
+                                : 'bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white'
+                                } ${isUploading ? 'opacity-70 cursor-not-allowed' : 'hover:shadow-orange-500/20'}`}
+                        >
+                            {isUploading ? (
+                                <span className="flex items-center justify-center italic">
+                                    <span className="animate-pulse mr-2">요청 전송 중...</span>
+                                </span>
+                            ) : (totals.hasUnpricedCustom ? '맞춤 견적 요청하기' : '디자인 시안 요청하기')}
                         </button>
 
-                        <button onClick={handlePrintQuote} className="cursor-pointer w-full mt-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center border border-slate-700 shadow-sm">
+                        <button onClick={handlePrintQuote} className="cursor-pointer w-full mt-3 bg-slate-800/50 hover:bg-slate-800 text-slate-300 font-bold py-3.5 rounded-xl transition-all flex items-center justify-center border border-slate-700 shadow-sm backdrop-blur-sm">
                             <Printer className="w-4 h-4 mr-2" /> 견적서 PDF 다운로드 / 인쇄
                         </button>
 
-                        <p className="text-[11px] text-slate-500 text-center mt-4">* 부가세(VAT) 10% 별도 금액입니다.</p>
+                        <p className="text-[11px] text-slate-500 text-center mt-6 font-medium tracking-tight bg-slate-800/30 py-2 rounded-lg border border-slate-700/50">
+                            * 부가세(VAT) 10%는 <span className="text-orange-400 font-bold underline underline-offset-2 decoration-orange-500/30">별도</span> 금액입니다.
+                        </p>
                     </div>
                 </div>
             </div>
