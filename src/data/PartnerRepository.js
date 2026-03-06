@@ -67,5 +67,14 @@ export const PartnerRepository = {
         await updateDoc(partnerRef, {
             phone: newPhone
         });
+    },
+
+    // 파트너 상세 프로필 업데이트
+    async updatePartnerProfile(docId, profileData) {
+        const partnerRef = doc(db, PARTNERS_COLLECTION, docId);
+        await updateDoc(partnerRef, {
+            ...profileData,
+            updatedAt: Timestamp.now()
+        });
     }
 };

@@ -8,9 +8,11 @@ import { PRICING, MAIN_BANNER_SIZES, DATE_BANNER_SIZES, PROMO_SIZES } from '../.
 import { PartnerRepository } from '../../data/PartnerRepository';
 import { OrderRepository } from '../../data/OrderRepository';
 import { StorageService } from '../../data/StorageService';
+import { useDialog } from '../components/DialogProvider';
 
 export default function OrderView() {
     const navigate = useNavigate();
+    const { showAlert, showConfirm } = useDialog();
     const [partnerRequests, setPartnerRequests] = useState([]);
 
     useEffect(() => {
@@ -122,12 +124,12 @@ export default function OrderView() {
                 academyName: inquiryData.academyName,
                 phone: inquiryData.phone
             });
-            alert(`[접수 완료] ${inquiryData.academyName} 원장님, 파트너 신청이 완료되었습니다.\n담당자가 확인 후 기재하신 연락처로 코드를 발급해 드립니다.`);
+            await showAlert(`[접수 완료] ${inquiryData.academyName} 원장님, 파트너 신청이 완료되었습니다.\n담당자가 확인 후 기재하신 연락처로 코드를 발급해 드립니다.`);
             setAuthMode('login');
             setInquiryData({ academyName: '', phone: '' });
         } catch (error) {
             console.error(error);
-            alert('신청 중 오류가 발생했습니다.');
+            showAlert('신청 중 오류가 발생했습니다.', '오류');
         }
     };
 
@@ -135,11 +137,11 @@ export default function OrderView() {
     const updateItem = (id, field, value) => setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item));
     const removeItem = (id) => items.length > 1 && setItems(items.filter(item => item.id !== id));
 
-    const handlePrintQuote = (e) => {
+    const handlePrintQuote = async (e) => {
         e.preventDefault();
 
         if (!academyName) {
-            alert("견적서에 표기될 '학원명'을 먼저 입력해주세요.");
+            await showAlert("견적서에 표기될 '학원명'을 먼저 입력해주세요.", '알림');
             return;
         }
 
@@ -151,7 +153,7 @@ export default function OrderView() {
         const grandTotal = totals.hasUnpricedCustom ? 0 : supplyPrice;
 
         const itemsHtml = items.map((item, index) => {
-            const sizeStr = item.size === 'CUSTOM' ? `${item.customWidth}*${item.customHeight} (별도제작)` : item.size;
+            const sizeStr = item.size === 'CUSTOM' ? `${item.customWidth}*${item.customHeight} (별도 규격)` : item.size;
             const isCustom = item.size === 'CUSTOM';
             const priceStr = isCustom ? '별도산정' : (PRICING[item.size]).toLocaleString();
             const amountStr = isCustom ? '별도산정' : (PRICING[item.size] * item.qty).toLocaleString();
@@ -268,10 +270,10 @@ export default function OrderView() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!file) { alert("원본/디자인 파일 첨부는 필수입니다."); return; }
+        if (!file) { await showAlert("원본/디자인 파일 첨부는 필수입니다.", '확인'); return; }
         for (const item of items) {
             if (item.size === 'CUSTOM' && (!item.customWidth || !item.customHeight)) {
-                alert("직접 입력 사이즈를 정확히 입력해주세요."); return;
+                await showAlert("직접 입력 사이즈를 정확히 입력해주세요.", '확인'); return;
             }
         }
 
@@ -296,7 +298,7 @@ export default function OrderView() {
         } catch (error) {
             console.error(error);
             setIsUploading(false);
-            alert('주문 처리 중 오류가 발생했습니다.');
+            showAlert('주문 처리 중 오류가 발생했습니다.', '오류');
         }
     };
 
@@ -395,7 +397,7 @@ export default function OrderView() {
                             </div>
                             <h2 className="text-2xl font-extrabold text-slate-900 mb-3 tracking-tight">파트너 코드 찾기</h2>
                             <p className="text-slate-500 mb-8 text-sm leading-relaxed font-medium">기존에 등록하신 연락처를 입력하시면<br />문자로 코드를 다시 보내드립니다.</p>
-                            <form onSubmit={(e) => { e.preventDefault(); alert(`[발송 완료] 입력하신 연락처(${inquiryData.phone})로 코드를 다시 발송했습니다.\n(데모: VIP2026)`); setAuthMode('login'); setInquiryData({ academyName: '', phone: '' }); }} className="space-y-4 text-left">
+                            <form onSubmit={async (e) => { e.preventDefault(); await showAlert(`[발송 완료] 입력하신 연락처(${inquiryData.phone})로 코드를 다시 발송했습니다.\n(데모: VIP2026)`); setAuthMode('login'); setInquiryData({ academyName: '', phone: '' }); }} className="space-y-4 text-left">
                                 <div>
                                     <label className="block text-xs font-bold text-slate-700 mb-2 ml-1 uppercase tracking-wider">등록된 연락처</label>
                                     <input required type="tel" className="w-full px-5 py-4 rounded-2xl border border-slate-200 outline-none focus:ring-4 focus:ring-slate-900/10 focus:border-slate-900 bg-slate-50/50 focus:bg-white transition-all font-bold placeholder:text-slate-300" placeholder="010-0000-0000" value={inquiryData.phone} onChange={(e) => setInquiryData({ ...inquiryData, phone: e.target.value })} />
@@ -427,6 +429,7 @@ export default function OrderView() {
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                     {!totals.hasUnpricedCustom && (
                         <button
+                            type="button"
                             onClick={handlePrintQuote}
                             className="cursor-pointer bg-white border-2 border-slate-900 text-slate-900 px-8 py-4 rounded-xl font-bold hover:bg-slate-50 transition-all flex items-center justify-center shadow-sm"
                         >
@@ -434,6 +437,7 @@ export default function OrderView() {
                         </button>
                     )}
                     <button
+                        type="button"
                         onClick={() => navigate('/tracking')}
                         className="cursor-pointer bg-slate-900 hover:bg-slate-800 text-white px-8 py-4 rounded-xl font-bold shadow-xl transition-all flex items-center justify-center min-w-[200px]"
                     >
@@ -497,7 +501,7 @@ export default function OrderView() {
                                             <optgroup label="메인 버스 자석 현수막">{MAIN_BANNER_SIZES.map(s => <option key={s} value={s}>{s}</option>)}</optgroup>
                                             <optgroup label="보조/날짜용 현수막">{DATE_BANNER_SIZES.map(s => <option key={s} value={s}>{s}</option>)}</optgroup>
                                             <optgroup label="홍보물">{PROMO_SIZES.map(s => <option key={s} value={s}>{s}</option>)}</optgroup>
-                                            <optgroup label="기타 사이즈"><option value="CUSTOM" className="text-orange-600 font-bold">✍️ 직접 입력 (별도 견적)</option></optgroup>
+                                            <optgroup label="기타 사이즈"><option value="CUSTOM" className="text-orange-600 font-bold">✍️ 직접 입력 (별도 규격)</option></optgroup>
                                         </select>
                                         {item.size === 'CUSTOM' && (
                                             <div className="flex gap-3 mt-3">
@@ -598,6 +602,7 @@ export default function OrderView() {
                             </div>
                         </div>
                         <button
+                            type="button"
                             disabled={isUploading}
                             onClick={handleSubmit}
                             className={`cursor-pointer w-full font-extrabold text-lg py-5 rounded-xl shadow-xl transition-all transform hover:-translate-y-1 active:scale-95 ${totals.hasUnpricedCustom
@@ -612,7 +617,7 @@ export default function OrderView() {
                             ) : (totals.hasUnpricedCustom ? '맞춤 견적 및 시안 요청하기' : '디자인 시안 요청하기')}
                         </button>
 
-                        <button onClick={handlePrintQuote} className="cursor-pointer w-full mt-3 bg-slate-800/50 hover:bg-slate-800 text-slate-300 font-bold py-3.5 rounded-xl transition-all flex items-center justify-center border border-slate-700 shadow-sm backdrop-blur-sm">
+                        <button type="button" onClick={handlePrintQuote} className="cursor-pointer w-full mt-3 bg-slate-800/50 hover:bg-slate-800 text-slate-300 font-bold py-3.5 rounded-xl transition-all flex items-center justify-center border border-slate-700 shadow-sm backdrop-blur-sm">
                             <Printer className="w-4 h-4 mr-2" /> 견적서 PDF 다운로드 / 인쇄
                         </button>
 

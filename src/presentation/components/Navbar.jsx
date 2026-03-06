@@ -1,9 +1,11 @@
 import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Rocket, LayoutDashboard } from 'lucide-react';
+import { Rocket, LayoutDashboard, FileEdit } from 'lucide-react';
+import { useDialog } from './DialogProvider';
 
 export default function Navbar() {
     const navigate = useNavigate();
+    const { showAlert } = useDialog();
     const [clickCount, setClickCount] = useState(0);
     const timerRef = useRef(null);
 
@@ -18,8 +20,9 @@ export default function Navbar() {
 
         if (newCount >= 5) {
             setClickCount(0);
-            alert('관리자 모드로 진입합니다.');
-            navigate('/admin');
+            showAlert('관리자 모드로 진입합니다.').then(() => {
+                navigate('/admin');
+            });
         } else {
             setClickCount(newCount);
             // 3초 동안 추가 클릭이 없으면 카운트 초기화 (기존 2초에서 연장)
@@ -45,8 +48,9 @@ export default function Navbar() {
                         <span className="ml-2 px-2 py-0.5 rounded bg-orange-50 text-orange-600 border border-orange-200 text-[10px] font-bold uppercase tracking-wider">B2B</span>
                     </div>
                     <div className="flex items-center space-x-2 sm:space-x-4">
-                        <Link to="/order" className="text-slate-600 hover:text-orange-600 font-bold px-3 py-2 rounded-lg transition-colors text-sm">
-                            <span className="hidden sm:inline">간편 견적/요청</span><span className="sm:hidden">견적/요청</span>
+                        <Link to="/order" className="text-slate-600 hover:text-orange-600 font-bold px-3 py-2 rounded-lg transition-colors text-sm flex items-center">
+                            <FileEdit className="w-4 h-4 mr-1.5" />
+                            <span className="hidden sm:inline">간편 견적 요청</span><span className="sm:hidden">견적 요청</span>
                         </Link>
                         <div className="w-px h-6 bg-slate-200 mx-2 hidden sm:block"></div>
                         <Link to="/tracking" className="bg-slate-800 text-white hover:bg-slate-900 px-4 py-2 rounded-xl font-bold transition-all shadow-md hover:shadow-lg flex items-center text-sm">

@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PackageSearch, AlertCircle, Phone, RefreshCcw, Download, Lock, KeyRound, Star, LayoutDashboard, Plus, ShieldCheck, Search, Image, Check } from 'lucide-react';
+import { PackageSearch, AlertCircle, Phone, RefreshCcw, Download, Lock, KeyRound, Star, LayoutDashboard, Plus, ShieldCheck, Search, Image, Check, Printer, UserCog, Building, Mail, MapPin, Hash, User } from 'lucide-react';
 import { OrderRepository } from '../../data/OrderRepository';
 import { PartnerRepository } from '../../data/PartnerRepository';
-import { STATUS_MAP, STATUS_COLORS } from '../../core/constants';
+import { STATUS_MAP, STATUS_COLORS, PRICING } from '../../core/constants';
+import { useDialog } from '../components/DialogProvider';
 
 export default function TrackingView() {
     const navigate = useNavigate();
+    const { showAlert, showConfirm } = useDialog();
     const [authCode, setAuthCode] = useState('');
     const [authError, setAuthError] = useState('');
     const [authMode, setAuthMode] = useState('login'); // 'login', 'request', 'find'
@@ -21,6 +23,42 @@ export default function TrackingView() {
     const [modifyingOrderId, setModifyingOrderId] = useState(null);
     const [modText, setModText] = useState('');
     const [showHistory, setShowHistory] = useState({}); // { orderId: boolean }
+    const [showProfileModal, setShowProfileModal] = useState(false);
+    const [profileData, setProfileData] = useState({
+        address: '',
+        managerName: '',
+        phone: '',
+        taxEmail: '',
+        businessNumber: '',
+        ceoName: ''
+    });
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Load initial profile data
+    useEffect(() => {
+        const loadProfile = async () => {
+            if (isAuthorized && partnerId && partnerId !== 'DEMO') {
+                try {
+                    // We can use verifyPartnerCode or similar, but for now we'll rely on the session
+                    // or fetch the latest data from DB
+                    const partner = await PartnerRepository.verifyPartnerCode(authCode);
+                    if (partner) {
+                        setProfileData({
+                            address: partner.address || '',
+                            managerName: partner.managerName || '',
+                            phone: partner.phone || '',
+                            taxEmail: partner.taxEmail || '',
+                            businessNumber: partner.businessNumber || '',
+                            ceoName: partner.ceoName || ''
+                        });
+                    }
+                } catch (e) {
+                    console.error('프로필 로드 실패:', e);
+                }
+            }
+        };
+        loadProfile();
+    }, [isAuthorized, partnerId, authCode]);
 
     // 세션 유지를 위한 로직 추가
     useEffect(() => {
@@ -96,38 +134,58 @@ export default function TrackingView() {
                 academyName: inquiryData.academyName,
                 phone: inquiryData.phone
             });
-            alert(`[접수 완료] ${inquiryData.academyName} 원장님, 파트너 신청이 완료되었습니다.\n담당자가 확인 후 기재하신 연락처로 코드를 발급해 드립니다.`);
+            await showAlert(`[접수 완료] ${inquiryData.academyName} 원장님, 파트너 신청이 완료되었습니다.\n담당자가 확인 후 기재하신 연락처로 코드를 발급해 드립니다.`);
             setAuthMode('login');
             setInquiryData({ academyName: '', phone: '' });
         } catch (error) {
             console.error(error);
-            alert('신청 중 오류가 발생했습니다.');
+            showAlert('신청 중 오류가 발생했습니다.', '오류');
+        }
+    };
+
+    const handleUpdateProfile = async (e) => {
+        e.preventDefault();
+        if (!partnerId || partnerId === 'DEMO') {
+            await showAlert('데모 계정은 정보를 수정할 수 없습니다.', '확인');
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            await PartnerRepository.updatePartnerProfile(partnerId, profileData);
+            await showAlert('학원 정보가 성공적으로 업데이트되었습니다.', '저장 완료');
+            setShowProfileModal(false);
+        } catch (error) {
+            console.error('프로필 업데이트 오류:', error);
+            await showAlert('정보 저장 중 오류가 발생했습니다. 다시 시도해주세요.', '오류');
+        } finally {
+            setIsSaving(false);
         }
     };
 
     const handleStatusUpdate = async (orderId, newStatus) => {
         try {
             if (newStatus === 'CANCELLED') {
-                const confirmed = window.confirm('정말 주문을 취소하시겠습니까?');
+                const confirmed = await showConfirm('정말 주문을 취소하시겠습니까?');
                 if (!confirmed) return;
             }
             if (newStatus === 'APPROVED') {
-                const confirmed = window.confirm('디자인 시안을 최종 확정하시겠습니까?\n확정 후에는 수정이 불가능하며 바로 제작 및 배송 절차가 진행됩니다.');
+                const confirmed = await showConfirm('디자인 시안을 최종 확정하시겠습니까?\n확정 후에는 수정이 불가능하며 바로 제작 및 배송 절차가 진행됩니다.');
                 if (!confirmed) return;
             }
 
             await OrderRepository.updateOrderStatus(orderId, newStatus);
-            alert(newStatus === 'APPROVED' ? '시안이 최종 확정되었습니다. 제작을 시작합니다!' : '상태가 업데이트 되었습니다.');
+            await showAlert(newStatus === 'APPROVED' ? '시안이 최종 확정되었습니다. 제작을 시작합니다!' : '상태가 업데이트 되었습니다.');
 
         } catch (error) {
             console.error(error);
-            alert('업데이트 중 오류가 발생했습니다.');
+            showAlert('업데이트 중 오류가 발생했습니다.', '오류');
         }
     };
 
     const handleSubmitModification = async (orderId) => {
         if (!modText.trim()) {
-            alert('수청 요청 내용을 입력해주세요.');
+            await showAlert('수청 요청 내용을 입력해주세요.', '확인');
             return;
         }
 
@@ -136,13 +194,155 @@ export default function TrackingView() {
                 status: 'MODIFY_REQUEST',
                 modificationRequest: modText
             });
-            alert('수정 요청이 접수되었습니다. 담당자가 확인 후 시안을 다시 업로드해 드립니다.');
+            await showAlert('수정 요청이 접수되었습니다. 담당자가 확인 후 시안을 다시 업로드해 드립니다.');
             setModifyingOrderId(null);
             setModText('');
         } catch (error) {
             console.error(error);
-            alert('상태 업데이트 중 오류가 발생했습니다.');
+            showAlert('상태 업데이트 중 오류가 발생했습니다.', '오류');
         }
+    };
+
+    const handlePrintQuote = (order) => {
+        const printWindow = window.open('', '_blank', 'width=800,height=900');
+        const today = new Date().toLocaleDateString('ko-KR');
+
+        const isEstimated = typeof order.total === 'number';
+        const grandTotal = isEstimated ? order.total : 0;
+
+        let calculatedShippingFee = order.shippingFee || 0;
+        if (!isEstimated && !order.shippingFee) {
+            let totalQty = 0;
+            (order.items || []).forEach(item => totalQty += item.qty);
+            calculatedShippingFee = totalQty > 0 ? Math.ceil(totalQty / 3) * 8000 : 0;
+        }
+
+        const itemsHtml = (order.items || []).map((item, index) => {
+            const sizeStr = item.size === 'CUSTOM' ? `${item.customWidth}*${item.customHeight} (별도 규격)` : item.size;
+
+            let amount = 0;
+            let unitPrice = 0;
+
+            if (item.price !== undefined && item.price !== null) {
+                amount = item.price;
+                unitPrice = item.qty > 0 ? Math.floor(amount / item.qty) : 0;
+            } else if (item.size !== 'CUSTOM') {
+                unitPrice = PRICING[item.size] || 0;
+                amount = unitPrice * item.qty;
+            }
+
+            const priceStr = isEstimated || item.size !== 'CUSTOM' ? unitPrice.toLocaleString() : '별도산정';
+            const amountStr = isEstimated || item.size !== 'CUSTOM' ? amount.toLocaleString() : '별도산정';
+
+            return `
+        <tr>
+          <td style="text-align: center; padding: 10px; border: 1px solid #cbd5e1;">${index + 1}</td>
+          <td style="padding: 10px; border: 1px solid #cbd5e1;">자석 현수막 / 홍보물 (${sizeStr})</td>
+          <td style="text-align: center; padding: 10px; border: 1px solid #cbd5e1;">${item.qty}</td>
+          <td style="text-align: right; padding: 10px; border: 1px solid #cbd5e1;">${priceStr}</td>
+          <td style="text-align: right; padding: 10px; border: 1px solid #cbd5e1;">${amountStr}</td>
+        </tr>
+      `;
+        }).join('');
+
+        const html = `
+      <html>
+        <head>
+          <title>견적서 - ${order.academyName}</title>
+          <style>
+            body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; padding: 40px; color: #1e293b; }
+            .header { text-align: center; margin-bottom: 40px; }
+            .header h1 { font-size: 36px; letter-spacing: 15px; text-decoration: underline; margin-bottom: 10px; }
+            .info-table { width: 100%; margin-bottom: 30px; border-collapse: collapse; }
+            .info-table td { padding: 5px; vertical-align: top; }
+            .provider-box { border: 2px solid #1e293b; padding: 15px; border-radius: 8px; }
+            .item-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; }
+            .item-table th, .item-table td { border: 1px solid #cbd5e1; padding: 10px; }
+            .item-table th { background-color: #f1f5f9; font-weight: bold; text-align: center; }
+            .total-box { background-color: #f8fafc; border: 2px solid #1e293b; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; margin-bottom: 30px; }
+            @media print {
+              @page { margin: 15mm; }
+              body { padding: 0; }
+              button { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div style="text-align: right; margin-bottom: 20px;">
+            <button onclick="window.print()" style="padding: 10px 20px; background: #f97316; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 16px;">
+              🖨️ 인쇄 또는 PDF로 저장하기
+            </button>
+          </div>
+          <div class="header"><h1>견적서</h1></div>
+          <table class="info-table">
+            <tr>
+              <td style="width: 50%;">
+                <div style="font-size: 24px; font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid #1e293b; display: inline-block; padding-bottom: 5px;">
+                  ${order.academyName} 귀하
+                </div>
+                <div style="margin-top: 10px;"><strong>견적일자:</strong> ${today}</div>
+                <div style="margin-top: 5px;">아래와 같이 견적합니다.</div>
+                <div style="margin-top: 5px; font-size: 12px; color: #64748b;">주문번호: ${order.customId || order.id.substring(0, 8).toUpperCase()}</div>
+              </td>
+              <td style="width: 50%;">
+                <div class="provider-box">
+                  <table style="width:100%; font-size: 14px; line-height: 1.6;">
+                    <tr><td style="width: 80px; font-weight: bold;">공급자</td><td>주식회사 아임오케이 (imokayy Co., Ltd.)</td></tr>
+                    <tr><td style="font-weight: bold;">사업자번호</td><td>841-88-02576</td></tr>
+                    <tr><td style="font-weight: bold;">대표이사</td><td>손미선 <span style="position: relative; display: inline-block; margin-left: 10px;">(인)<img src="/seal.png" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 45px; height: 45px; opacity: 0.9;" /></span></td></tr>
+                    <tr><td style="font-weight: bold;">주소</td><td>경기도 화성시 동탄기흥로 585, 201동 207호</td></tr>
+                    <tr><td style="font-weight: bold;">고객센터</td><td>010-5955-4936</td></tr>
+                  </table>
+                </div>
+              </td>
+            </tr>
+          </table>
+          ${!isEstimated ?
+                `<div style="color: #ea580c; font-weight: bold; margin-bottom: 20px; text-align: center; border: 1px solid #ea580c; padding: 15px; background: #fff7ed;">
+              * 직접 입력하신 규격이 포함되어 있어, 정확한 총 합계 금액은 담당자 확인 후 재안내 드립니다.
+            </div>` :
+                `<div class="total-box">
+              합계금액: ₩ ${grandTotal.toLocaleString()} (VAT 별도)
+            </div>`
+            }
+          <table class="item-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">No.</th>
+                <th>품목 및 규격</th>
+                <th style="width: 60px;">수량</th>
+                <th style="width: 120px;">단가(원)</th>
+                <th style="width: 120px;">공급가액(원)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+              <tr>
+                <td colspan="4" style="text-align: right; padding: 10px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">배송비 (포장비 포함)</td>
+                <td style="text-align: right; padding: 10px; border: 1px solid #cbd5e1;">${calculatedShippingFee.toLocaleString()}</td>
+              </tr>
+              ${isEstimated ? `
+              <tr style="background-color: #f8fafc; font-weight: bold;">
+                <td colspan="4" style="text-align: right; padding: 10px; border: 1px solid #cbd5e1;">최종 합계 (VAT 별도)</td>
+                <td style="text-align: right; padding: 10px; border: 1px solid #cbd5e1;">₩ ${grandTotal.toLocaleString()}</td>
+              </tr>
+              ` : ''}
+            </tbody>
+          </table>
+          <div style="margin-top: 20px; font-size: 13px; color: #64748b;">
+            <p>* 본 견적서의 유효기간은 발행일로부터 15일입니다.</p>
+            <p>* 디자인 난이도 및 추가 요청사항에 따라 최종 금액이 변동될 수 있습니다.</p>
+          </div>
+          <div style="text-align: right; margin-top: 50px;">
+            <p>감사합니다.</p>
+            <h2 style="margin-top: 10px; color: #1e293b;">클래스부스트 (아임오케이)</h2>
+          </div>
+        </body>
+      </html>
+    `;
+        printWindow.document.write(html);
+        printWindow.document.close();
+        printWindow.focus();
     };
 
 
@@ -241,7 +441,7 @@ export default function TrackingView() {
                             </div>
                             <h2 className="text-2xl font-extrabold text-slate-900 mb-3 tracking-tight">파트너 코드 찾기</h2>
                             <p className="text-slate-500 mb-8 text-sm leading-relaxed font-medium">기존에 등록하신 연락처를 입력하시면<br />카카오톡으로 코드를 다시 보내드립니다.</p>
-                            <form onSubmit={(e) => { e.preventDefault(); alert(`[발송 완료] 입력하신 연락처(${inquiryData.phone})로 코드를 다시 발송했습니다.\n(데모: VIP2026)`); setAuthMode('login'); setInquiryData({ academyName: '', phone: '' }); }} className="space-y-4 text-left">
+                            <form onSubmit={async (e) => { e.preventDefault(); await showAlert(`[발송 완료] 입력하신 연락처(${inquiryData.phone})로 코드를 다시 발송했습니다.\n(데모: VIP2026)`); setAuthMode('login'); setInquiryData({ academyName: '', phone: '' }); }} className="space-y-4 text-left">
                                 <div>
                                     <label className="block text-xs font-bold text-slate-700 mb-2 ml-1 uppercase tracking-wider">등록된 연락처</label>
                                     <input required type="tel" className="w-full px-5 py-4 rounded-2xl border border-slate-200 outline-none focus:ring-4 focus:ring-slate-900/10 focus:border-slate-900 bg-slate-50/50 focus:bg-white transition-all font-bold placeholder:text-slate-300" placeholder="010-0000-0000" value={inquiryData.phone} onChange={(e) => setInquiryData({ ...inquiryData, phone: e.target.value })} />
@@ -265,17 +465,21 @@ export default function TrackingView() {
                         <LayoutDashboard className="h-8 w-8 text-orange-600" />
                     </div>
                     <div>
-                        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-1">{academyName} 원장님, 환영합니다.</h2>
+                        <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight mb-1">{academyName} 님, 환영합니다.</h2>
                         <p className="text-slate-500 font-medium">아임오케이 비즈니스 파트너 전용 대시보드</p>
                     </div>
                 </div>
-                <div className="text-sm border border-slate-200 bg-slate-50 px-5 py-3 rounded-xl flex items-center shadow-sm">
+                <button
+                    onClick={() => setShowProfileModal(true)}
+                    className="group text-sm border border-slate-200 bg-slate-50 px-5 py-3 rounded-xl flex items-center shadow-sm hover:bg-orange-50 hover:border-orange-200 transition-all cursor-pointer"
+                >
                     <div className="w-2 h-2 bg-orange-500 rounded-full mr-3 animate-pulse"></div>
                     <span className="text-slate-500 mr-2 font-medium">파트너 코드:</span>
-                    <span className="font-bold text-slate-900 tracking-wider">
+                    <span className="font-bold text-slate-900 tracking-wider mr-2">
                         {authCode.toUpperCase()}
                     </span>
-                </div>
+                    <UserCog className="w-4 h-4 text-slate-400 group-hover:text-orange-500 transition-colors" />
+                </button>
                 <button
                     onClick={() => navigate('/order')}
                     className="cursor-pointer bg-[#0f172a] text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-800 transition-all shadow-lg active:scale-[0.98] text-sm flex items-center"
@@ -324,12 +528,21 @@ export default function TrackingView() {
                                         </span>
                                     </h3>
                                 </div>
-                                <div className="text-right mt-4 md:mt-0 font-bold w-full md:w-auto flex justify-between md:block items-center">
-                                    <span className="text-slate-400 text-xs font-bold uppercase tracking-wider block md:inline md:mr-3">Total Amount</span>
-                                    <span className="text-2xl text-slate-900 font-extrabold tracking-tight">
-                                        {typeof order.total === 'number' ? `${order.total.toLocaleString()}원` : order.total}
-                                        {typeof order.total === 'number' && <span className="text-[10px] text-slate-400 ml-2 font-bold uppercase tracking-wider">VAT 별도</span>}
-                                    </span>
+                                <div className="text-right mt-4 md:mt-0 font-bold w-full md:w-auto flex flex-col items-end gap-2 text-right">
+                                    <div className="flex justify-between md:block items-center w-full md:w-auto px-1 md:px-0">
+                                        <span className="text-slate-400 text-xs font-bold uppercase tracking-wider block md:inline md:mr-3">Total Amount</span>
+                                        <span className="text-2xl text-slate-900 font-extrabold tracking-tight">
+                                            {typeof order.total === 'number' ? `${order.total.toLocaleString()}원` : order.total}
+                                            {typeof order.total === 'number' && <span className="text-[10px] text-slate-400 ml-2 font-bold uppercase tracking-wider">VAT 별도</span>}
+                                        </span>
+                                    </div>
+                                    <button
+                                        onClick={() => handlePrintQuote(order)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors shadow-sm self-end"
+                                    >
+                                        <Printer className="w-3.5 h-3.5" />
+                                        견적서 다운로드/인쇄
+                                    </button>
                                 </div>
                             </div>
 
@@ -348,7 +561,7 @@ export default function TrackingView() {
                                             ];
                                             let currentIndex = steps.findIndex(s => s.id === order.status);
 
-                                            if (order.status === 'DONE') currentIndex = 5;
+                                            if (order.status === 'DONE' || order.status === 'TAX_INVOICE') currentIndex = 5;
                                             if (order.status === 'CANCELLED') currentIndex = -1;
 
                                             return steps.map((step, index) => {
@@ -383,7 +596,7 @@ export default function TrackingView() {
                                             {(order.items || []).map(item => (
                                                 <li key={item.id} className="flex items-center">
                                                     <div className="w-1.5 h-1.5 bg-orange-400 rounded-full mr-2.5"></div>
-                                                    {item.size === 'CUSTOM' ? `[별도제작] ${item.customWidth}*${item.customHeight}` : item.size}
+                                                    {item.size === 'CUSTOM' ? `[별도 규격] ${item.customWidth}*${item.customHeight}` : item.size}
                                                     <span className="ml-2 text-slate-400 font-medium">/ {item.qty}개</span>
                                                 </li>
                                             ))}
@@ -491,7 +704,7 @@ export default function TrackingView() {
                                                             </div>
                                                         ) : (
                                                             <>
-                                                                <button onClick={() => handleStatusUpdate(order.id, 'APPROVED')} className="cursor-pointer bg-indigo-600 text-white px-6 md:px-8 py-3.5 md:py-4 rounded-xl font-extrabold hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 flex-1 md:min-w-[200px] text-base md:text-lg flex items-center justify-center gap-2">
+                                                                <button type="button" onClick={() => handleStatusUpdate(order.id, 'APPROVED')} className="cursor-pointer bg-indigo-600 text-white px-6 md:px-8 py-3.5 md:py-4 rounded-xl font-extrabold hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-100 flex-1 md:min-w-[200px] text-base md:text-lg flex items-center justify-center gap-2">
                                                                     <Check className="w-5 h-5" /> 시안 최종 확정
                                                                 </button>
                                                                 <button
@@ -541,13 +754,13 @@ export default function TrackingView() {
                                                     </p>
                                                 </div>
                                             </div>
-                                            <button onClick={() => handleStatusUpdate(order.id, 'CANCELLED')} className="cursor-pointer whitespace-nowrap px-6 py-3 rounded-xl font-bold text-slate-400 border border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-100 transition-all w-full md:w-auto text-center">
+                                            <button type="button" onClick={() => handleStatusUpdate(order.id, 'CANCELLED')} className="cursor-pointer whitespace-nowrap px-6 py-3 rounded-xl font-bold text-slate-400 border border-slate-200 hover:bg-red-50 hover:text-red-600 hover:border-red-100 transition-all w-full md:w-auto text-center">
                                                 주문 취소
                                             </button>
                                         </div>
                                     )}
 
-                                    {['DESIGN', 'APPROVED', 'SHIPPING', 'DONE', 'MODIFY_REQUEST'].includes(order.status) && (
+                                    {['DESIGN', 'APPROVED', 'SHIPPING', 'DONE', 'MODIFY_REQUEST', 'TAX_INVOICE'].includes(order.status) && (
                                         <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-center sm:items-start p-5 md:p-6 bg-slate-50/50 border border-slate-100 rounded-2xl transition-all animate-in fade-in slide-in-from-bottom-2 text-center sm:text-left">
                                             <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white shadow-md border border-slate-100 flex items-center justify-center shrink-0">
                                                 <ShieldCheck className={`w-6 h-6 md:w-8 md:h-8 ${order.status === 'DONE' ? 'text-green-500' : 'text-indigo-500'}`} />
@@ -559,11 +772,14 @@ export default function TrackingView() {
                                                     {order.status === 'APPROVED' && '시안이 확정되어 제작이 진행 중입니다'}
                                                     {order.status === 'SHIPPING' && '상품이 원장님께 배송 중입니다'}
                                                     {order.status === 'DONE' && '배송 및 모든 작업이 완료되었습니다'}
+                                                    {order.status === 'TAX_INVOICE' && '세금계산서 발행이 완료되었습니다'}
                                                 </p>
                                                 <p className="text-slate-500 text-xs md:text-sm leading-relaxed font-medium">
-                                                    {order.status === 'DONE'
-                                                        ? '아임오케이를 이용해주셔서 감사합니다. 다음에도 꼭 다시 찾아주세요!'
-                                                        : '현재 공정 단계에 맞춰 꼼꼼하게 작업 중입니다. 단계가 변경될 때마다 알림을 보내 드립니다.'}
+                                                    {order.status === 'TAX_INVOICE'
+                                                        ? '요청하신 세금계산서가 발행되었습니다. 이메일을 확인해 주세요.'
+                                                        : order.status === 'DONE'
+                                                            ? '아임오케이를 이용해주셔서 감사합니다. 다음에도 꼭 다시 찾아주세요!'
+                                                            : '현재 공정 단계에 맞춰 꼼꼼하게 작업 중입니다. 단계가 변경될 때마다 알림을 보내 드립니다.'}
                                                 </p>
                                             </div>
                                         </div>
@@ -583,6 +799,142 @@ export default function TrackingView() {
                     ))
                 )}
             </div>
+            {/* 학원 정보 수정 모달 */}
+            {showProfileModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2rem] shadow-2xl border border-slate-100 w-full max-w-xl overflow-hidden animate-in zoom-in-95 duration-300">
+                        <div className="bg-orange-600 p-8 text-white relative">
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md">
+                                    <Building className="w-6 h-6 text-white" />
+                                </div>
+                                <div>
+                                    <h3 className="text-2xl font-bold">학원 상세 정보 설정</h3>
+                                    <p className="text-orange-100 text-sm mt-1">정확한 배송 및 세금계산서 발행을 위해 정보를 입력해 주세요.</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowProfileModal(false)}
+                                className="absolute top-8 right-8 text-white/60 hover:text-white transition-colors"
+                            >
+                                <Plus className="w-8 h-8 rotate-45" />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleUpdateProfile} className="p-8 space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div className="space-y-2">
+                                    <label className="flex items-center text-xs font-bold text-slate-500 ml-1 uppercase tracking-wider">
+                                        <Building className="w-3 h-3 mr-1.5" /> 학원명
+                                    </label>
+                                    <input
+                                        type="text"
+                                        readOnly
+                                        className="w-full px-4 py-3.5 rounded-xl border border-slate-100 bg-slate-50 text-slate-500 font-bold outline-none cursor-not-allowed"
+                                        value={academyName}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="flex items-center text-xs font-bold text-slate-700 ml-1 uppercase tracking-wider">
+                                        <User className="w-3 h-3 mr-1.5" /> 담당자명
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        className="w-full px-4 py-3.5 rounded-xl border border-slate-200 focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none font-bold placeholder:text-slate-300 transition-all"
+                                        placeholder="홍길동 원장님"
+                                        value={profileData.managerName}
+                                        onChange={(e) => setProfileData({ ...profileData, managerName: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="flex items-center text-xs font-bold text-slate-700 ml-1 uppercase tracking-wider">
+                                        <Phone className="w-3 h-3 mr-1.5" /> 대표 연락처
+                                    </label>
+                                    <input
+                                        type="tel"
+                                        required
+                                        className="w-full px-4 py-3.5 rounded-xl border border-slate-200 focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none font-bold placeholder:text-slate-300 transition-all"
+                                        placeholder="010-0000-0000"
+                                        value={profileData.phone}
+                                        onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="flex items-center text-xs font-bold text-slate-700 ml-1 uppercase tracking-wider">
+                                        <Mail className="w-3 h-3 mr-1.5" /> 세금계산서 이메일
+                                    </label>
+                                    <input
+                                        type="email"
+                                        required
+                                        className="w-full px-4 py-3.5 rounded-xl border border-slate-200 focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none font-bold placeholder:text-slate-300 transition-all"
+                                        placeholder="tax@academy.com"
+                                        value={profileData.taxEmail}
+                                        onChange={(e) => setProfileData({ ...profileData, taxEmail: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="flex items-center text-xs font-bold text-slate-700 ml-1 uppercase tracking-wider">
+                                        <Hash className="w-3 h-3 mr-1.5" /> 사업자등록번호
+                                    </label>
+                                    <input
+                                        type="text"
+                                        className="w-full px-4 py-3.5 rounded-xl border border-slate-200 focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none font-bold placeholder:text-slate-300 transition-all"
+                                        placeholder="000-00-00000"
+                                        value={profileData.businessNumber}
+                                        onChange={(e) => setProfileData({ ...profileData, businessNumber: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="flex items-center text-xs font-bold text-slate-700 ml-1 uppercase tracking-wider">
+                                        <UserCog className="w-3 h-3 mr-1.5" /> 대표자명
+                                    </label>
+                                    <input
+                                        type="text"
+                                        className="w-full px-4 py-3.5 rounded-xl border border-slate-200 focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none font-bold placeholder:text-slate-300 transition-all"
+                                        placeholder="대표자 성함"
+                                        value={profileData.ceoName}
+                                        onChange={(e) => setProfileData({ ...profileData, ceoName: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="flex items-center text-xs font-bold text-slate-700 ml-1 uppercase tracking-wider">
+                                    <MapPin className="w-3 h-3 mr-1.5" /> 배송지 주소
+                                </label>
+                                <textarea
+                                    className="w-full px-4 py-3.5 rounded-xl border border-slate-200 focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none font-bold placeholder:text-slate-300 transition-all h-20 resize-none"
+                                    placeholder="정확한 배송을 위해 상세 주소를 입력해주세요."
+                                    value={profileData.address}
+                                    onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
+                                ></textarea>
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowProfileModal(false)}
+                                    className="flex-1 px-6 py-4 rounded-xl font-bold text-slate-500 border border-slate-200 hover:bg-slate-50 transition-all"
+                                >
+                                    취소
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSaving}
+                                    className="flex-[2] bg-orange-600 text-white px-6 py-4 rounded-xl font-bold hover:bg-orange-700 shadow-xl shadow-orange-100 transition-all disabled:opacity-50 flex items-center justify-center"
+                                >
+                                    {isSaving ? (
+                                        <RefreshCcw className="w-5 h-5 animate-spin" />
+                                    ) : (
+                                        '정보 저장하기'
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
