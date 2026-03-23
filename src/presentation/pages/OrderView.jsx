@@ -1,275 +1,161 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-    Calculator, Upload, AlertCircle, ShieldCheck, Lock, KeyRound, Search,
-    Star, CheckCircle, Trash2, Plus, Check, Printer
-} from 'lucide-react';
-import { PRICING, MAIN_BANNER_SIZES, DATE_BANNER_SIZES, PROMO_SIZES } from '../../core/constants';
+import { Calculator, CheckCircle, Upload, Check, Printer } from 'lucide-react';
+import { PRICING } from '../../core/constants';
 import { PartnerRepository } from '../../data/PartnerRepository';
 import { OrderRepository } from '../../data/OrderRepository';
 import { StorageService } from '../../data/StorageService';
 import { useDialog } from '../components/DialogProvider';
+import { usePartnerAuth } from '../hooks/usePartnerAuth';
+import PartnerAuthForm from '../components/PartnerAuthForm';
+import OrderItemCart from '../components/order/OrderItemCart';
+import OrderSummaryCard from '../components/order/OrderSummaryCard';
+
+function calculateTotals(items) {
+    let hasUnpricedCustom = false;
+    let productTotal = 0;
+    let totalQty = 0;
+
+    items.forEach(item => {
+        totalQty += item.qty;
+        if (item.size === 'CUSTOM') {
+            if (item.customPrice !== undefined && item.customPrice !== null) productTotal += item.customPrice * item.qty;
+            else hasUnpricedCustom = true;
+        } else {
+            productTotal += (PRICING[item.size] || 0) * item.qty;
+        }
+    });
+
+    const requiredBoxes = Math.ceil(totalQty / 3);
+    const shippingFee = totalQty > 0 ? requiredBoxes * 8000 : 0;
+    const finalTotal = hasUnpricedCustom ? null : Math.floor(productTotal + shippingFee);
+
+    return {
+        productTotal: hasUnpricedCustom ? null : productTotal,
+        shippingFee,
+        finalTotal,
+        hasUnpricedCustom,
+        totalQty,
+        requiredBoxes
+    };
+}
+
+function generateQuoteHtml(academyName, items, totals) {
+    const today = new Date().toLocaleDateString('ko-KR');
+    const supplyPrice = totals.productTotal + totals.shippingFee;
+    const grandTotal = totals.hasUnpricedCustom ? 0 : Math.floor(supplyPrice);
+
+    const itemsHtml = items.map((item, index) => {
+        const sizeStr = item.size === 'CUSTOM' ? `${item.customWidth}*${item.customHeight} (별도 규격)` : item.size;
+        const isCustom = item.size === 'CUSTOM';
+        const priceStr = isCustom ? '별도산정' : (PRICING[item.size]).toLocaleString();
+        const amountStr = isCustom ? '별도산정' : (PRICING[item.size] * item.qty).toLocaleString();
+        return `<tr>
+          <td style="text-align:center;padding:10px;border:1px solid #cbd5e1;">${index + 1}</td>
+          <td style="padding:10px;border:1px solid #cbd5e1;">자석 현수막 / 홍보물 (${sizeStr})</td>
+          <td style="text-align:center;padding:10px;border:1px solid #cbd5e1;">${item.qty}</td>
+          <td style="text-align:right;padding:10px;border:1px solid #cbd5e1;">${priceStr}</td>
+          <td style="text-align:right;padding:10px;border:1px solid #cbd5e1;">${amountStr}</td>
+        </tr>`;
+    }).join('');
+
+    return `<html><head><title>견적서 - ${academyName}</title>
+      <style>
+        body{font-family:'Malgun Gothic','맑은 고딕',sans-serif;padding:40px;color:#1e293b;}
+        .header{text-align:center;margin-bottom:40px;}
+        .header h1{font-size:36px;letter-spacing:15px;text-decoration:underline;margin-bottom:10px;}
+        .info-table{width:100%;margin-bottom:30px;border-collapse:collapse;}
+        .info-table td{padding:5px;vertical-align:top;}
+        .provider-box{border:2px solid #1e293b;padding:15px;border-radius:8px;}
+        .item-table{width:100%;border-collapse:collapse;margin-bottom:20px;font-size:14px;}
+        .item-table th,.item-table td{border:1px solid #cbd5e1;padding:10px;}
+        .item-table th{background-color:#f1f5f9;font-weight:bold;text-align:center;}
+        .total-box{background-color:#f8fafc;border:2px solid #1e293b;padding:20px;text-align:center;font-size:24px;font-weight:bold;margin-bottom:30px;}
+        @media print{@page{margin:15mm;}body{padding:0;}button{display:none;}}
+      </style></head>
+      <body>
+        <div style="text-align:right;margin-bottom:20px;">
+          <button onclick="window.print()" style="padding:10px 20px;background:#f97316;color:white;border:none;border-radius:5px;font-weight:bold;cursor:pointer;font-size:16px;">🖨️ 인쇄 또는 PDF로 저장하기</button>
+        </div>
+        <div class="header"><h1>견적서</h1></div>
+        <table class="info-table"><tr>
+          <td style="width:50%;">
+            <div style="font-size:24px;font-weight:bold;margin-bottom:10px;border-bottom:2px solid #1e293b;display:inline-block;padding-bottom:5px;">${academyName} 귀하</div>
+            <div style="margin-top:10px;"><strong>견적일자:</strong> ${today}</div>
+            <div style="margin-top:5px;">아래와 같이 견적합니다.</div>
+          </td>
+          <td style="width:50%;">
+            <div class="provider-box">
+              <table style="width:100%;font-size:14px;line-height:1.6;">
+                <tr><td style="width:80px;font-weight:bold;">공급자</td><td>주식회사 아임오케이 (imokayy Co., Ltd.)</td></tr>
+                <tr><td style="font-weight:bold;">사업자번호</td><td>841-88-02576</td></tr>
+                <tr><td style="font-weight:bold;">대표이사</td><td>손미선 <span style="position:relative;display:inline-block;margin-left:10px;">(인)<img src="/seal.png" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:45px;height:45px;opacity:0.9;" /></span></td></tr>
+                <tr><td style="font-weight:bold;">주소</td><td>경기도 화성시 동탄기흥로 585, 201동 207호</td></tr>
+                <tr><td style="font-weight:bold;">고객센터</td><td>010-5955-4936</td></tr>
+              </table>
+            </div>
+          </td>
+        </tr></table>
+        ${totals.hasUnpricedCustom
+            ? `<div style="color:#ea580c;font-weight:bold;margin-bottom:20px;text-align:center;border:1px solid #ea580c;padding:15px;background:#fff7ed;">* 직접 입력하신 규격이 포함되어 있어, 정확한 총 합계 금액은 담당자 확인 후 재안내 드립니다.</div>`
+            : `<div class="total-box">합계금액: ₩ ${grandTotal.toLocaleString()} (VAT 별도)</div>`}
+        <table class="item-table">
+          <thead><tr>
+            <th style="width:50px;">No.</th><th>품목 및 규격</th>
+            <th style="width:60px;">수량</th><th style="width:120px;">단가(원)</th><th style="width:120px;">공급가액(원)</th>
+          </tr></thead>
+          <tbody>
+            ${itemsHtml}
+            <tr><td colspan="4" style="text-align:right;padding:10px;border:1px solid #cbd5e1;font-weight:bold;background-color:#f8fafc;">배송비 (포장비 포함)</td><td style="text-align:right;padding:10px;border:1px solid #cbd5e1;">${totals.shippingFee.toLocaleString()}</td></tr>
+            ${!totals.hasUnpricedCustom ? `<tr style="background-color:#f8fafc;font-weight:bold;"><td colspan="4" style="text-align:right;padding:10px;border:1px solid #cbd5e1;">최종 합계 (VAT 별도)</td><td style="text-align:right;padding:10px;border:1px solid #cbd5e1;">₩ ${grandTotal.toLocaleString()}</td></tr>` : ''}
+          </tbody>
+        </table>
+        <div style="margin-top:20px;font-size:13px;color:#64748b;">
+          <p>* 본 견적서의 유효기간은 발행일로부터 15일입니다.</p>
+          <p>* 디자인 난이도 및 추가 요청사항에 따라 최종 금액이 변동될 수 있습니다.</p>
+        </div>
+        <div style="text-align:right;margin-top:50px;"><p>감사합니다.</p><h2 style="margin-top:10px;color:#1e293b;">클래스부스트 (아임오케이)</h2></div>
+      </body></html>`;
+}
 
 export default function OrderView() {
     const navigate = useNavigate();
-    const { showAlert, showConfirm } = useDialog();
-    const [partnerRequests, setPartnerRequests] = useState([]);
-
-    useEffect(() => {
-        // 세션 유지 로직 추가
-        const savedPartner = localStorage.getItem('partnerSession');
-        if (savedPartner) {
-            const { id, academyName: savedName, code, phone: savedPhone } = JSON.parse(savedPartner);
-            setIsAuthorized(true);
-            setPartnerId(id);
-            setAcademyName(savedName);
-            setAuthCode(code);
-            if (savedPhone) setPhone(savedPhone);
-        }
-
-        const unsubscribe = PartnerRepository.subscribeToPartners((data) => {
-            setPartnerRequests(data);
-        });
-        return () => unsubscribe();
-    }, []);
-
-    const [authCode, setAuthCode] = useState('');
-    const [authError, setAuthError] = useState('');
-    const [authMode, setAuthMode] = useState('login');
-    const [inquiryData, setInquiryData] = useState({ academyName: '', phone: '' });
+    const { showAlert } = useDialog();
 
     const [items, setItems] = useState([{ id: Date.now(), size: '3400*400', customWidth: '', customHeight: '', qty: 1 }]);
     const [academyName, setAcademyName] = useState('');
     const [phone, setPhone] = useState('');
-    const [partnerId, setPartnerId] = useState(null);
     const [text, setText] = useState('');
     const [file, setFile] = useState(null);
     const [isSubmitted, setIsSubmitted] = useState(false);
-    const [isAuthorized, setIsAuthorized] = useState(() => !!localStorage.getItem('partnerSession'));
     const [isUploading, setIsUploading] = useState(false);
 
-    const calculateTotals = (cartItems) => {
-        let hasUnpricedCustom = false;
-        let productTotal = 0;
-        let totalQty = 0;
-
-        cartItems.forEach(item => {
-            totalQty += item.qty;
-            if (item.size === 'CUSTOM') {
-                if (item.customPrice !== undefined && item.customPrice !== null) productTotal += item.customPrice * item.qty;
-                else hasUnpricedCustom = true;
-            } else {
-                productTotal += (PRICING[item.size] || 0) * item.qty;
-            }
-        });
-
-        const requiredBoxes = Math.ceil(totalQty / 3);
-        const shippingFee = totalQty > 0 ? requiredBoxes * 8000 : 0;
-        const supplyPrice = productTotal + shippingFee;
-        const finalTotal = hasUnpricedCustom ? null : Math.floor(supplyPrice);
-
-        return {
-            productTotal: hasUnpricedCustom ? null : productTotal,
-            shippingFee,
-            finalTotal,
-            hasUnpricedCustom, totalQty, requiredBoxes
-        };
-    };
+    const auth = usePartnerAuth({
+        onLogin: (partner) => {
+            if (partner.academyName) setAcademyName(partner.academyName);
+            if (partner.phone) setPhone(partner.phone);
+        }
+    });
 
     const totals = calculateTotals(items);
-    const getFinalSizeString = (item) => item.size === 'CUSTOM' ? `${item.customWidth}*${item.customHeight} (직접입력)` : item.size;
 
-    const handleAuthSubmit = async (e) => {
-        e.preventDefault();
+    const addItem = () => setItems(prev => [...prev, { id: Date.now(), size: '3400*400', customWidth: '', customHeight: '', qty: 1 }]);
+    const updateItem = (id, field, value) => setItems(prev => prev.map(item => item.id === id ? { ...item, [field]: value } : item));
+    const removeItem = (id) => setItems(prev => prev.length > 1 ? prev.filter(item => item.id !== id) : prev);
 
-        // MVP 데모용 하드코딩 패스워드
-        if (authCode.toUpperCase() === 'VIP2026') {
-            const demoPartner = { id: 'DEMO', academyName: '체험용(VIP)', code: 'VIP2026' };
-            setIsAuthorized(true);
-            setAuthError('');
-            setPartnerId(demoPartner.id);
-            setAcademyName(demoPartner.academyName);
-            localStorage.setItem('partnerSession', JSON.stringify(demoPartner));
-            return;
-        }
-
-        try {
-            const partnerData = await PartnerRepository.verifyPartnerCode(authCode.toUpperCase());
-            if (partnerData) {
-                const partnerSession = {
-                    id: partnerData.id,
-                    academyName: partnerData.academyName,
-                    code: authCode.toUpperCase(),
-                    phone: partnerData.phone
-                };
-                setIsAuthorized(true);
-                setAuthError('');
-                setPartnerId(partnerSession.id);
-                if (partnerData.academyName) setAcademyName(partnerData.academyName);
-                if (partnerData.phone) setPhone(partnerData.phone);
-                localStorage.setItem('partnerSession', JSON.stringify(partnerSession));
-            } else {
-                setAuthError('유효하지 않은 파트너 코드입니다. 아임오케이에 문의해주세요.');
-            }
-        } catch (error) {
-            console.error('인증 오류:', error);
-            setAuthError('오류가 발생했습니다. 잠시 후 다시 시도해주세요.');
-        }
-    };
-
-    const handleRequestPartner = async (e) => {
-        e.preventDefault();
-        try {
-            await PartnerRepository.createPartnerRequest({
-                academyName: inquiryData.academyName,
-                phone: inquiryData.phone
-            });
-            await showAlert(`[접수 완료] ${inquiryData.academyName} 원장님, 파트너 신청이 완료되었습니다.\n담당자가 확인 후 기재하신 연락처로 코드를 발급해 드립니다.`);
-            setAuthMode('login');
-            setInquiryData({ academyName: '', phone: '' });
-        } catch (error) {
-            console.error(error);
-            showAlert('신청 중 오류가 발생했습니다.', '오류');
-        }
-    };
-
-    const addItem = () => setItems([...items, { id: Date.now(), size: '3400*400', customWidth: '', customHeight: '', qty: 1 }]);
-    const updateItem = (id, field, value) => setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item));
-    const removeItem = (id) => items.length > 1 && setItems(items.filter(item => item.id !== id));
-
-    const handlePrintQuote = async (e) => {
-        e.preventDefault();
-
+    const handlePrintQuote = (e) => {
+        if (e) e.preventDefault();
         if (!academyName) {
-            await showAlert("견적서에 표기될 '학원명'을 먼저 입력해주세요.", '알림');
+            showAlert("견적서에 표기될 '학원명'을 먼저 입력해주세요.", '알림');
             return;
         }
-
         const printWindow = window.open('', '_blank', 'width=800,height=900');
-        const today = new Date().toLocaleDateString('ko-KR');
-
-        const supplyPrice = totals.productTotal + totals.shippingFee;
-        const vat = totals.hasUnpricedCustom ? 0 : Math.floor(supplyPrice * 0.1);
-        const grandTotal = totals.hasUnpricedCustom ? 0 : supplyPrice;
-
-        const itemsHtml = items.map((item, index) => {
-            const sizeStr = item.size === 'CUSTOM' ? `${item.customWidth}*${item.customHeight} (별도 규격)` : item.size;
-            const isCustom = item.size === 'CUSTOM';
-            const priceStr = isCustom ? '별도산정' : (PRICING[item.size]).toLocaleString();
-            const amountStr = isCustom ? '별도산정' : (PRICING[item.size] * item.qty).toLocaleString();
-
-            return `
-        <tr>
-          <td style="text-align: center; padding: 10px; border: 1px solid #cbd5e1;">${index + 1}</td>
-          <td style="padding: 10px; border: 1px solid #cbd5e1;">자석 현수막 / 홍보물 (${sizeStr})</td>
-          <td style="text-align: center; padding: 10px; border: 1px solid #cbd5e1;">${item.qty}</td>
-          <td style="text-align: right; padding: 10px; border: 1px solid #cbd5e1;">${priceStr}</td>
-          <td style="text-align: right; padding: 10px; border: 1px solid #cbd5e1;">${amountStr}</td>
-        </tr>
-      `;
-        }).join('');
-
-        const html = `
-      <html>
-        <head>
-          <title>견적서 - ${academyName}</title>
-          <style>
-            body { font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; padding: 40px; color: #1e293b; }
-            .header { text-align: center; margin-bottom: 40px; }
-            .header h1 { font-size: 36px; letter-spacing: 15px; text-decoration: underline; margin-bottom: 10px; }
-            .info-table { width: 100%; margin-bottom: 30px; border-collapse: collapse; }
-            .info-table td { padding: 5px; vertical-align: top; }
-            .provider-box { border: 2px solid #1e293b; padding: 15px; border-radius: 8px; }
-            .item-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; }
-            .item-table th, .item-table td { border: 1px solid #cbd5e1; padding: 10px; }
-            .item-table th { background-color: #f1f5f9; font-weight: bold; text-align: center; }
-            .total-box { background-color: #f8fafc; border: 2px solid #1e293b; padding: 20px; text-align: center; font-size: 24px; font-weight: bold; margin-bottom: 30px; }
-            @media print {
-              @page { margin: 15mm; }
-              body { padding: 0; }
-              button { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <div style="text-align: right; margin-bottom: 20px;">
-            <button onclick="window.print()" style="padding: 10px 20px; background: #f97316; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 16px;">
-              🖨️ 인쇄 또는 PDF로 저장하기
-            </button>
-          </div>
-          <div class="header"><h1>견적서</h1></div>
-          <table class="info-table">
-            <tr>
-              <td style="width: 50%;">
-                <div style="font-size: 24px; font-weight: bold; margin-bottom: 10px; border-bottom: 2px solid #1e293b; display: inline-block; padding-bottom: 5px;">
-                  ${academyName} 귀하
-                </div>
-                <div style="margin-top: 10px;"><strong>견적일자:</strong> ${today}</div>
-                <div style="margin-top: 5px;">아래와 같이 견적합니다.</div>
-              </td>
-              <td style="width: 50%;">
-                <div class="provider-box">
-                  <table style="width:100%; font-size: 14px; line-height: 1.6;">
-                    <tr><td style="width: 80px; font-weight: bold;">공급자</td><td>주식회사 아임오케이 (imokayy Co., Ltd.)</td></tr>
-                    <tr><td style="font-weight: bold;">사업자번호</td><td>841-88-02576</td></tr>
-                    <tr><td style="font-weight: bold;">대표이사</td><td>손미선 <span style="position: relative; display: inline-block; margin-left: 10px;">(인)<img src="/seal.png" style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 45px; height: 45px; opacity: 0.9;" /></span></td></tr>
-                    <tr><td style="font-weight: bold;">주소</td><td>경기도 화성시 동탄기흥로 585, 201동 207호</td></tr>
-                    <tr><td style="font-weight: bold;">고객센터</td><td>010-5955-4936</td></tr>
-                  </table>
-                </div>
-              </td>
-            </tr>
-          </table>
-          ${totals.hasUnpricedCustom ?
-                `<div style="color: #ea580c; font-weight: bold; margin-bottom: 20px; text-align: center; border: 1px solid #ea580c; padding: 15px; background: #fff7ed;">
-              * 직접 입력하신 규격이 포함되어 있어, 정확한 총 합계 금액은 담당자 확인 후 재안내 드립니다.
-            </div>` :
-                `<div class="total-box">
-              합계금액: ₩ ${grandTotal.toLocaleString()} (VAT 별도)
-            </div>`
-            }
-          <table class="item-table">
-            <thead>
-              <tr>
-                <th style="width: 50px;">No.</th>
-                <th>품목 및 규격</th>
-                <th style="width: 60px;">수량</th>
-                <th style="width: 120px;">단가(원)</th>
-                <th style="width: 120px;">공급가액(원)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemsHtml}
-              <tr>
-                <td colspan="4" style="text-align: right; padding: 10px; border: 1px solid #cbd5e1; font-weight: bold; background-color: #f8fafc;">배송비 (포장비 포함)</td>
-                <td style="text-align: right; padding: 10px; border: 1px solid #cbd5e1;">${totals.shippingFee.toLocaleString()}</td>
-              </tr>
-              ${!totals.hasUnpricedCustom ? `
-              <tr style="background-color: #f8fafc; font-weight: bold;">
-                <td colspan="4" style="text-align: right; padding: 10px; border: 1px solid #cbd5e1;">최종 합계 (VAT 별도)</td>
-                <td style="text-align: right; padding: 10px; border: 1px solid #cbd5e1;">₩ ${grandTotal.toLocaleString()}</td>
-              </tr>
-              ` : ''}
-            </tbody>
-          </table>
-          <div style="margin-top: 20px; font-size: 13px; color: #64748b;">
-            <p>* 본 견적서의 유효기간은 발행일로부터 15일입니다.</p>
-            <p>* 디자인 난이도 및 추가 요청사항에 따라 최종 금액이 변동될 수 있습니다.</p>
-          </div>
-          <div style="text-align: right; margin-top: 50px;">
-            <p>감사합니다.</p>
-            <h2 style="margin-top: 10px; color: #1e293b;">클래스부스트 (아임오케이)</h2>
-          </div>
-        </body>
-      </html>
-    `;
-        printWindow.document.write(html);
+        printWindow.document.write(generateQuoteHtml(academyName, items, totals));
         printWindow.document.close();
         printWindow.focus();
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleSubmit = async () => {
         if (!file) { await showAlert("원본/디자인 파일 첨부는 필수입니다.", '확인'); return; }
         for (const item of items) {
             if (item.size === 'CUSTOM' && (!item.customWidth || !item.customHeight)) {
@@ -280,11 +166,10 @@ export default function OrderView() {
         try {
             setIsUploading(true);
             const downloadURL = await StorageService.uploadFile(file, 'design_files');
-
             await OrderRepository.createOrder({
                 academyName,
                 phone,
-                partnerId,
+                partnerId: auth.partnerId,
                 items,
                 designRequestText: text,
                 designFileUrl: downloadURL,
@@ -292,123 +177,21 @@ export default function OrderView() {
                 shippingFee: totals.shippingFee,
                 status: 'NEW'
             });
-
-            setIsUploading(false);
             setIsSubmitted(true);
-        } catch (error) {
-            console.error(error);
-            setIsUploading(false);
+        } catch {
             showAlert('주문 처리 중 오류가 발생했습니다.', '오류');
+        } finally {
+            setIsUploading(false);
         }
     };
 
-    if (!isAuthorized) {
+    if (!auth.isAuthorized) {
         return (
-            <div className="max-w-md mx-auto mt-24 bg-white rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-500">
-                <div className="h-2 w-full bg-gradient-to-r from-orange-400 to-orange-600"></div>
-                <div className="p-10 text-center relative">
-                    {authMode === 'login' && (
-                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                            {/* Lock Icon Box */}
-                            <div className="w-24 h-24 bg-slate-50 rounded-[2rem] flex items-center justify-center mx-auto mb-8 border border-slate-100 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)] ring-8 ring-slate-50/50">
-                                <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center shadow-sm border border-slate-100">
-                                    <Lock className="h-8 w-8 text-slate-700" strokeWidth={1.5} />
-                                </div>
-                            </div>
-
-                            {/* Title & Subtitle */}
-                            <h2 className="text-[1.75rem] font-extrabold text-slate-900 mb-3 tracking-tight">파트너 전용 공간</h2>
-                            <p className="text-slate-500 mb-10 text-sm leading-relaxed font-medium">
-                                경쟁력 있는 단가 제공과 발주를 위해<br />
-                                <span className="text-slate-400">사전 승인된 파트너에게만 견적을 공개합니다.</span>
-                            </p>
-
-                            {/* Form */}
-                            <form onSubmit={handleAuthSubmit} className="space-y-4">
-                                <div className="relative group">
-                                    <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
-                                        <KeyRound className="h-5 w-5 text-slate-300 group-focus-within:text-orange-500 transition-colors" />
-                                    </div>
-                                    <input
-                                        type="text"
-                                        className="w-full pl-12 pr-4 py-4 rounded-2xl border border-slate-200 focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none font-bold tracking-tight text-center text-slate-900 bg-slate-50/50 focus:bg-white transition-all text-lg placeholder:text-slate-300 uppercase"
-                                        placeholder="코드를 입력하세요"
-                                        value={authCode}
-                                        onChange={(e) => setAuthCode(e.target.value)}
-                                    />
-                                </div>
-                                {authError && <p className="text-red-500 text-sm text-center font-medium animate-pulse">{authError}</p>}
-
-                                <button type="submit" className="cursor-pointer w-full bg-[#0f172a] text-white px-6 py-5 rounded-2xl font-bold hover:bg-slate-800 transition-all shadow-xl hover:shadow-orange-500/10 active:scale-[0.98] mt-2 text-lg">
-                                    인증하고 견적 확인하기
-                                </button>
-                            </form>
-
-                            {/* Divider */}
-                            <div className="my-8 h-px bg-slate-100 w-full"></div>
-
-                            {/* Footer Links */}
-                            <div className="flex flex-col space-y-5">
-                                <button
-                                    type="button"
-                                    onClick={() => setAuthMode('request')}
-                                    className="flex items-center justify-center space-x-2 text-orange-600 font-extrabold hover:underline transition-all group mx-auto"
-                                >
-                                    <Star className="w-5 h-5 text-orange-500 fill-orange-500 group-hover:scale-110 transition-transform" />
-                                    <span>신규 파트너 신청하기</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setAuthMode('find')}
-                                    className="text-slate-400 text-[13px] font-medium hover:text-slate-600 transition-colors"
-                                >
-                                    기존 파트너 코드를 잊어버리셨나요?
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {authMode === 'request' && (
-                        <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-                            <div className="w-20 h-20 bg-orange-50 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6 border border-orange-100 shadow-sm">
-                                <Star className="h-10 w-10 text-orange-500 fill-orange-500" strokeWidth={1.5} />
-                            </div>
-                            <h2 className="text-2xl font-extrabold text-slate-900 mb-3 tracking-tight">신규 파트너 신청</h2>
-                            <p className="text-slate-500 mb-8 text-sm leading-relaxed font-medium">학원명과 연락처를 남겨주시면,<br />아임오케이 담당자가 승인 후 코드를 발급해 드립니다.</p>
-                            <form onSubmit={handleRequestPartner} className="space-y-4 text-left">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-2 ml-1 uppercase tracking-wider">학원명</label>
-                                    <input required type="text" className="w-full px-5 py-4 rounded-2xl border border-slate-200 outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 bg-slate-50/50 focus:bg-white transition-all font-bold placeholder:text-slate-300" placeholder="예: 정석수학학원" value={inquiryData.academyName} onChange={(e) => setInquiryData({ ...inquiryData, academyName: e.target.value })} />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-2 ml-1 uppercase tracking-wider">원장님(담당자) 연락처</label>
-                                    <input required type="tel" className="w-full px-5 py-4 rounded-2xl border border-slate-200 outline-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 bg-slate-50/50 focus:bg-white transition-all font-bold placeholder:text-slate-300" placeholder="010-0000-0000" value={inquiryData.phone} onChange={(e) => setInquiryData({ ...inquiryData, phone: e.target.value })} />
-                                </div>
-                                <button type="submit" className="cursor-pointer w-full bg-orange-600 text-white px-6 py-5 rounded-2xl font-bold hover:bg-orange-700 shadow-xl shadow-orange-200 transition-all mt-4 text-lg active:scale-[0.98]">파트너 신청하기</button>
-                                <button type="button" onClick={() => setAuthMode('login')} className="cursor-pointer w-full bg-white border border-slate-200 text-slate-700 px-6 py-4 rounded-2xl font-bold hover:bg-slate-50 transition-colors text-base">뒤로 가기</button>
-                            </form>
-                        </div>
-                    )}
-
-                    {authMode === 'find' && (
-                        <div className="animate-in fade-in slide-in-from-left-4 duration-500">
-                            <div className="w-20 h-20 bg-slate-50 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6 border border-slate-100 shadow-sm">
-                                <Search className="h-10 w-10 text-slate-600" strokeWidth={1.5} />
-                            </div>
-                            <h2 className="text-2xl font-extrabold text-slate-900 mb-3 tracking-tight">파트너 코드 찾기</h2>
-                            <p className="text-slate-500 mb-8 text-sm leading-relaxed font-medium">기존에 등록하신 연락처를 입력하시면<br />문자로 코드를 다시 보내드립니다.</p>
-                            <form onSubmit={async (e) => { e.preventDefault(); await showAlert(`[발송 완료] 입력하신 연락처(${inquiryData.phone})로 코드를 다시 발송했습니다.\n(데모: VIP2026)`); setAuthMode('login'); setInquiryData({ academyName: '', phone: '' }); }} className="space-y-4 text-left">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-2 ml-1 uppercase tracking-wider">등록된 연락처</label>
-                                    <input required type="tel" className="w-full px-5 py-4 rounded-2xl border border-slate-200 outline-none focus:ring-4 focus:ring-slate-900/10 focus:border-slate-900 bg-slate-50/50 focus:bg-white transition-all font-bold placeholder:text-slate-300" placeholder="010-0000-0000" value={inquiryData.phone} onChange={(e) => setInquiryData({ ...inquiryData, phone: e.target.value })} />
-                                </div>
-                                <button type="submit" className="cursor-pointer w-full bg-slate-900 text-white px-6 py-5 rounded-2xl font-bold hover:bg-slate-800 shadow-xl shadow-slate-200 transition-all mt-4 text-lg active:scale-[0.98]">카카오톡으로 코드 받기</button>
-                                <button type="button" onClick={() => setAuthMode('login')} className="cursor-pointer w-full bg-white border border-slate-200 text-slate-700 px-6 py-4 rounded-2xl font-bold hover:bg-slate-50 transition-colors text-base">뒤로 가기</button>
-                            </form>
-                        </div>
-                    )}
-                </div>
-            </div>
+            <PartnerAuthForm
+                subtitle="경쟁력 있는 단가 제공과 발주를 위해<br /><span class='text-slate-400'>사전 승인된 파트너에게만 견적을 공개합니다.</span>"
+                submitLabel="인증하고 견적 확인하기"
+                {...auth}
+            />
         );
     }
 
@@ -428,19 +211,11 @@ export default function OrderView() {
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                     {!totals.hasUnpricedCustom && (
-                        <button
-                            type="button"
-                            onClick={handlePrintQuote}
-                            className="cursor-pointer bg-white border-2 border-slate-900 text-slate-900 px-8 py-4 rounded-xl font-bold hover:bg-slate-50 transition-all flex items-center justify-center shadow-sm"
-                        >
+                        <button type="button" onClick={handlePrintQuote} className="cursor-pointer bg-white border-2 border-slate-900 text-slate-900 px-8 py-4 rounded-xl font-bold hover:bg-slate-50 transition-all flex items-center justify-center shadow-sm">
                             <Printer className="w-5 h-5 mr-2" /> 견적서 PDF 다운로드
                         </button>
                     )}
-                    <button
-                        type="button"
-                        onClick={() => navigate('/tracking')}
-                        className="cursor-pointer bg-slate-900 hover:bg-slate-800 text-white px-8 py-4 rounded-xl font-bold shadow-xl transition-all flex items-center justify-center min-w-[200px]"
-                    >
+                    <button type="button" onClick={() => navigate('/tracking')} className="cursor-pointer bg-slate-900 hover:bg-slate-800 text-white px-8 py-4 rounded-xl font-bold shadow-xl transition-all flex items-center justify-center min-w-[200px]">
                         관리자 페이지로 가기
                     </button>
                 </div>
@@ -450,6 +225,7 @@ export default function OrderView() {
 
     return (
         <div className="max-w-6xl mx-auto py-8 md:py-12 px-4 sm:px-6">
+            {/* Header */}
             <div className="mb-8 md:mb-10 flex flex-col md:flex-row items-center justify-between bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
                 <div className="flex items-center mb-6 md:mb-0 w-full md:w-auto">
                     <div className="w-12 h-12 md:w-16 md:h-16 bg-orange-100 rounded-2xl flex items-center justify-center mr-4 md:mr-6 border border-orange-200 shadow-sm shrink-0">
@@ -463,9 +239,7 @@ export default function OrderView() {
                 <div className="text-sm border border-slate-200 bg-slate-50 px-5 py-3 rounded-xl flex items-center shadow-sm">
                     <div className="w-2 h-2 bg-orange-500 rounded-full mr-3 animate-pulse"></div>
                     <span className="text-slate-500 mr-2 font-medium">파트너 코드:</span>
-                    <span className="font-bold text-slate-900 tracking-wider">
-                        {authCode.toUpperCase()}
-                    </span>
+                    <span className="font-bold text-slate-900 tracking-wider">{auth.authCode.toUpperCase()}</span>
                 </div>
             </div>
 
@@ -473,7 +247,9 @@ export default function OrderView() {
                 <div className="flex-1 space-y-6 w-full">
                     {/* 기본 정보 */}
                     <div className="bg-white p-5 md:p-8 rounded-2xl shadow-sm border border-slate-200">
-                        <h3 className="text-base md:text-lg font-bold mb-6 text-slate-900 flex items-center tracking-tight"><div className="w-2 h-6 bg-orange-500 rounded-full mr-3"></div>기본 정보</h3>
+                        <h3 className="text-base md:text-lg font-bold mb-6 text-slate-900 flex items-center tracking-tight">
+                            <div className="w-2 h-6 bg-orange-500 rounded-full mr-3"></div>기본 정보
+                        </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-2">학원명</label>
@@ -481,59 +257,22 @@ export default function OrderView() {
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-2">담당자 연락처</label>
-                                <input required type="tel" className="w-full px-4 py-3.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-orange-500 outline-none bg-slate-50 focus:bg-white transition-colors" placeholder="010-0000-0000" value={phone} onChange={(e) => setPhone(e.target.value)} onBlur={() => { if (partnerId && phone) { PartnerRepository.updatePartnerPhone(partnerId, phone).catch(console.error); } }} />
+                                <input required type="tel" className="w-full px-4 py-3.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-orange-500 outline-none bg-slate-50 focus:bg-white transition-colors" placeholder="010-0000-0000" value={phone} onChange={(e) => setPhone(e.target.value)} onBlur={() => { if (auth.partnerId && phone) PartnerRepository.updatePartnerPhone(auth.partnerId, phone).catch(() => {}); }} />
                             </div>
                         </div>
                     </div>
 
-                    {/* 다중 선택 장바구니 */}
-                    <div className="bg-white p-5 md:p-8 rounded-2xl shadow-sm border border-slate-200">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-base md:text-lg font-bold text-slate-900 flex items-center tracking-tight"><div className="w-2 h-6 bg-orange-500 rounded-full mr-3"></div>주문 품목</h3>
-                            <span className="bg-slate-100 text-slate-700 px-3 py-1 rounded-full text-xs font-bold border border-slate-200">총 {totals.totalQty}개 담김</span>
-                        </div>
-                        <div className="space-y-4">
-                            {items.map((item, index) => (
-                                <div key={item.id} className="p-4 md:p-5 bg-slate-50 rounded-xl border border-slate-200 flex flex-col md:flex-row gap-4 items-end">
-                                    <div className="flex-1 w-full">
-                                        <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Item {index + 1} / 사이즈 선택</label>
-                                        <select className="w-full px-4 py-3 rounded-lg border border-slate-300 outline-none bg-white focus:ring-2 focus:ring-orange-500 font-medium text-slate-800" value={item.size} onChange={(e) => updateItem(item.id, 'size', e.target.value)}>
-                                            <optgroup label="메인 버스 자석 현수막">{MAIN_BANNER_SIZES.map(s => <option key={s} value={s}>{s}</option>)}</optgroup>
-                                            <optgroup label="보조/날짜용 현수막">{DATE_BANNER_SIZES.map(s => <option key={s} value={s}>{s}</option>)}</optgroup>
-                                            <optgroup label="홍보물">{PROMO_SIZES.map(s => <option key={s} value={s}>{s}</option>)}</optgroup>
-                                            <optgroup label="기타 사이즈"><option value="CUSTOM" className="text-orange-600 font-bold">✍️ 직접 입력 (별도 규격)</option></optgroup>
-                                        </select>
-                                        {item.size === 'CUSTOM' && (
-                                            <div className="flex gap-3 mt-3">
-                                                <div className="flex-1"><input type="number" required placeholder="가로 (mm)" className="w-full px-4 py-2.5 rounded border border-slate-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none text-sm" value={item.customWidth} onChange={(e) => updateItem(item.id, 'customWidth', e.target.value)} /></div>
-                                                <div className="flex-1"><input type="number" required placeholder="세로 (mm)" className="w-full px-4 py-2.5 rounded border border-slate-300 focus:border-orange-500 focus:ring-1 focus:ring-orange-500 outline-none text-sm" value={item.customHeight} onChange={(e) => updateItem(item.id, 'customHeight', e.target.value)} /></div>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="w-full md:w-32">
-                                        <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">수량</label>
-                                        <input type="number" min="1" className="w-full px-4 py-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-orange-500 outline-none text-center font-bold" value={item.qty} onChange={(e) => updateItem(item.id, 'qty', parseInt(e.target.value) || 1)} />
-                                    </div>
-                                    {items.length > 1 && (
-                                        <button type="button" onClick={() => removeItem(item.id)} className="cursor-pointer w-full md:w-auto p-3.5 bg-white text-slate-400 border border-slate-300 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors flex justify-center">
-                                            <Trash2 className="w-5 h-5" />
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                        <button type="button" onClick={addItem} className="cursor-pointer mt-4 w-full border-2 border-dashed border-slate-300 text-slate-600 font-bold py-4 rounded-xl hover:bg-slate-50 hover:border-slate-400 hover:text-slate-800 transition-colors flex items-center justify-center">
-                            <Plus className="w-5 h-5 mr-2" /> 새 품목 추가하기
-                        </button>
-                    </div>
+                    <OrderItemCart items={items} totals={totals} onAdd={addItem} onUpdate={updateItem} onRemove={removeItem} />
 
-                    {/* 파일 업로드 */}
+                    {/* 요청사항 및 파일 업로드 */}
                     <div className="bg-white p-5 md:p-8 rounded-2xl shadow-sm border border-slate-200">
-                        <h3 className="text-base md:text-lg font-bold mb-6 text-slate-900 flex items-center tracking-tight"><div className="w-2 h-6 bg-orange-500 rounded-full mr-3"></div>요청사항 및 파일 업로드</h3>
+                        <h3 className="text-base md:text-lg font-bold mb-6 text-slate-900 flex items-center tracking-tight">
+                            <div className="w-2 h-6 bg-orange-500 rounded-full mr-3"></div>요청사항 및 파일 업로드
+                        </h3>
                         <div className="space-y-6">
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-2">디자인 요청사항</label>
-                                <textarea required className="w-full px-4 py-3.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-orange-500 outline-none resize-none h-28 bg-slate-50 focus:bg-white transition-colors" placeholder="예: 문구 변경, 컬러 변경 등 원하는 디자인 방향을 상세히 적어주세요." value={text} onChange={(e) => setText(e.target.value)}></textarea>
+                                <textarea required className="w-full px-4 py-3.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-orange-500 outline-none resize-none h-28 bg-slate-50 focus:bg-white transition-colors" placeholder="예: 문구 변경, 컬러 변경 등 원하는 디자인 방향을 상세히 적어주세요." value={text} onChange={(e) => setText(e.target.value)} />
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-2">파일 첨부 (필수)</label>
@@ -552,80 +291,14 @@ export default function OrderView() {
                     </div>
                 </div>
 
-                {/* Sticky Summary Card */}
-                <div className="w-full lg:w-[380px] sticky top-24 shrink-0">
-                    <div className="bg-slate-900 rounded-2xl p-6 md:p-8 shadow-2xl border border-slate-800 text-white relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 rounded-full blur-3xl"></div>
-
-                        <h3 className="text-lg md:text-xl font-extrabold mb-6 pb-4 border-b border-slate-700 flex items-center tracking-tight">
-                            <ShieldCheck className="h-6 w-6 mr-2 text-orange-500" /> 결제 예정 요약
-                        </h3>
-
-                        <div className="space-y-4 mb-8">
-                            {items.map((item, idx) => (
-                                <div key={item.id} className="flex justify-between items-start text-sm">
-                                    <div className="pr-4">
-                                        <span className="block font-medium text-slate-200 truncate max-w-[180px] mb-1">{getFinalSizeString(item)}</span>
-                                        <span className="text-xs text-slate-500 font-bold tracking-wider bg-slate-800 px-2 py-0.5 rounded">QTY: {item.qty}</span>
-                                    </div>
-                                    <span className="font-bold text-white shrink-0">
-                                        {item.size === 'CUSTOM' ? <span className="text-orange-400 font-medium">별도 산정</span> : `${(PRICING[item.size] * item.qty).toLocaleString()}원`}
-                                    </span>
-                                </div>
-                            ))}
-
-                            <div className="pt-4 border-t border-slate-700/50 flex justify-between items-start text-sm">
-                                <div>
-                                    <span className="text-slate-200 font-medium">배송비 ({totals.requiredBoxes}박스)</span>
-                                    <p className="text-xs text-slate-500 mt-1">총 {totals.totalQty}개 (3개당 1박스)</p>
-                                </div>
-                                <span className="font-bold text-white">+{totals.shippingFee.toLocaleString()}원</span>
-                            </div>
-
-                            <div className="pt-6 mt-2 border-t border-slate-700 flex justify-between items-end">
-                                <span className="text-base font-bold text-slate-300">총합계</span>
-                                <div className="text-right">
-                                    {totals.hasUnpricedCustom ? (
-                                        <span className="text-lg font-extrabold text-orange-400 block tracking-tight">담당자 확인 후 안내</span>
-                                    ) : (
-                                        <div className="text-right group">
-                                            <span className="text-4xl font-black text-white block tracking-tighter drop-shadow-sm group-hover:text-orange-400 transition-colors">
-                                                {totals.finalTotal.toLocaleString()}
-                                                <span className="text-lg font-bold ml-1">원</span>
-                                            </span>
-                                            <span className="text-[10px] bg-white/10 text-slate-300 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider backdrop-blur-sm border border-white/5">
-                                                VAT 별도
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                        <button
-                            type="button"
-                            disabled={isUploading}
-                            onClick={handleSubmit}
-                            className={`cursor-pointer w-full font-extrabold text-lg py-5 rounded-xl shadow-xl transition-all transform hover:-translate-y-1 active:scale-95 ${totals.hasUnpricedCustom
-                                ? 'bg-gradient-to-r from-orange-400 to-orange-600 text-white hover:from-orange-500 hover:to-orange-700'
-                                : 'bg-gradient-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white'
-                                } ${isUploading ? 'opacity-70 cursor-not-allowed' : 'hover:shadow-orange-500/20'}`}
-                        >
-                            {isUploading ? (
-                                <span className="flex items-center justify-center italic">
-                                    <span className="animate-pulse mr-2">요청 전송 중...</span>
-                                </span>
-                            ) : (totals.hasUnpricedCustom ? '맞춤 견적 및 시안 요청하기' : '디자인 시안 요청하기')}
-                        </button>
-
-                        <button type="button" onClick={handlePrintQuote} className="cursor-pointer w-full mt-3 bg-slate-800/50 hover:bg-slate-800 text-slate-300 font-bold py-3.5 rounded-xl transition-all flex items-center justify-center border border-slate-700 shadow-sm backdrop-blur-sm">
-                            <Printer className="w-4 h-4 mr-2" /> 견적서 PDF 다운로드 / 인쇄
-                        </button>
-
-                        <p className="text-[11px] text-slate-500 text-center mt-6 font-medium tracking-tight bg-slate-800/30 py-2 rounded-lg border border-slate-700/50">
-                            * 부가세(VAT) 10%는 <span className="text-orange-400 font-bold underline underline-offset-2 decoration-orange-500/30">별도</span> 금액입니다.
-                        </p>
-                    </div>
-                </div>
+                <OrderSummaryCard
+                    items={items}
+                    totals={totals}
+                    authCode={auth.authCode}
+                    isUploading={isUploading}
+                    onSubmit={handleSubmit}
+                    onPrintQuote={handlePrintQuote}
+                />
             </div>
         </div>
     );
