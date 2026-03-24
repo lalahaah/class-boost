@@ -80,7 +80,7 @@ export default function AdminView() {
         return <AdminLoginScreen pin={pin} setPin={setPin} onLogin={handleLogin} />;
     }
 
-    const pendingOrdersCount = orders.filter(o => !['DONE', 'CANCELLED'].includes(o.status)).length;
+    const pendingOrdersCount = orders.filter(o => !['DONE', 'FINAL', 'CANCELLED'].includes(o.status)).length;
     const waitingPartnersCount = partners.filter(p => p.status === 'WAITING').length;
 
     return (

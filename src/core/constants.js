@@ -17,8 +17,9 @@ export const STATUS_MAP = {
     'MODIFY_REQUEST': '수정요청',
     'APPROVED': '제작중',
     'SHIPPING': '배송중',
-    'DONE': '완료',
+    'DONE': '배송완료',
     'TAX_INVOICE': '세금계산서 발행',
+    'FINAL': '최종완료',
     'CANCELLED': '주문취소'
 };
 
@@ -31,5 +32,6 @@ export const STATUS_COLORS = {
     'SHIPPING': 'bg-slate-100 text-slate-800 border-slate-200',
     'DONE': 'bg-green-100 text-green-800 border-green-200',
     'TAX_INVOICE': 'bg-orange-100 text-orange-800 border-orange-200',
+    'FINAL': 'bg-teal-100 text-teal-800 border-teal-200',
     'CANCELLED': 'bg-red-100 text-red-800 border-red-200'
 };

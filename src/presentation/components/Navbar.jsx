@@ -1,13 +1,28 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Rocket, LayoutDashboard, FileEdit } from 'lucide-react';
+import { Rocket, LayoutDashboard, FileEdit, LogOut } from 'lucide-react';
 import { useDialog } from './DialogProvider';
 
 export default function Navbar() {
     const navigate = useNavigate();
-    const { showAlert } = useDialog();
+    const { showAlert, showConfirm } = useDialog();
     const [clickCount, setClickCount] = useState(0);
     const timerRef = useRef(null);
+    const [isPartnerLoggedIn, setIsPartnerLoggedIn] = useState(() => !!localStorage.getItem('partnerSession'));
+
+    useEffect(() => {
+        const sync = () => setIsPartnerLoggedIn(!!localStorage.getItem('partnerSession'));
+        window.addEventListener('partnerSessionChanged', sync);
+        return () => window.removeEventListener('partnerSessionChanged', sync);
+    }, []);
+
+    const handleLogout = async () => {
+        const confirmed = await showConfirm('로그아웃 하시겠습니까?');
+        if (!confirmed) return;
+        localStorage.removeItem('partnerSession');
+        window.dispatchEvent(new Event('partnerSessionChanged'));
+        navigate('/');
+    };
 
     const handleLogoClick = () => {
         // 기본적으로 홈페이지로 이동
@@ -56,6 +71,19 @@ export default function Navbar() {
                         <Link to="/tracking" className="bg-slate-800 text-white hover:bg-slate-900 px-4 py-2 rounded-xl font-bold transition-all shadow-md hover:shadow-lg flex items-center text-sm">
                             <LayoutDashboard className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">시안조회/관리</span>
                         </Link>
+                        {isPartnerLoggedIn && (
+                            <>
+                                <div className="w-px h-6 bg-slate-200 hidden sm:block"></div>
+                                <button
+                                    onClick={handleLogout}
+                                    className="flex items-center text-slate-400 hover:text-red-500 transition-colors text-sm font-bold px-2 py-2 rounded-lg hover:bg-red-50"
+                                    title="로그아웃"
+                                >
+                                    <LogOut className="w-4 h-4 sm:mr-1.5" />
+                                    <span className="hidden sm:inline">로그아웃</span>
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>

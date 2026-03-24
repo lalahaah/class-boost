@@ -37,6 +37,7 @@ export function usePartnerAuth({ onLogin } = {}) {
         setPartnerId(partnerData.id);
         setAcademyName(partnerData.academyName);
         localStorage.setItem('partnerSession', JSON.stringify(partnerData));
+        window.dispatchEvent(new Event('partnerSessionChanged'));
         onLogin?.(partnerData);
     };
 
@@ -88,6 +89,7 @@ export function usePartnerAuth({ onLogin } = {}) {
 
     const logout = () => {
         localStorage.removeItem('partnerSession');
+        window.dispatchEvent(new Event('partnerSessionChanged'));
         setIsAuthorized(false);
         setPartnerId(null);
         setAcademyName('');

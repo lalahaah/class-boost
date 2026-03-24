@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertCircle, RefreshCcw, Download, ShieldCheck, Image, Check, Printer } from 'lucide-react';
+import { AlertCircle, RefreshCcw, Download, ShieldCheck, Image, Check, Printer, CheckCheck } from 'lucide-react';
 import { OrderRepository } from '../../../data/OrderRepository';
 import { STATUS_MAP, STATUS_COLORS, PRICING } from '../../../core/constants';
 import { useDialog } from '../DialogProvider';
@@ -150,8 +150,35 @@ export default function OrderCard({ order }) {
     };
 
     let currentIndex = PROGRESS_STEPS.findIndex(s => s.id === order.status);
-    if (order.status === 'DONE' || order.status === 'TAX_INVOICE') currentIndex = 5;
+    if (['DONE', 'TAX_INVOICE', 'FINAL'].includes(order.status)) currentIndex = 5;
     if (order.status === 'CANCELLED') currentIndex = -1;
+
+    // FINAL 상태: 요약 카드만 표시
+    if (order.status === 'FINAL') {
+        return (
+            <div className="bg-white rounded-2xl shadow-sm border border-teal-100 overflow-hidden animate-in fade-in">
+                <div className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center shrink-0 border border-teal-100">
+                            <CheckCheck className="w-5 h-5 text-teal-600" />
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-slate-700 text-sm">{order.customId || order.id.substring(0, 8).toUpperCase()}</span>
+                                <span className="text-[10px] font-bold bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full border border-teal-200">최종완료</span>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-0.5">
+                                {order.academyName} · {(order.items || []).length}건 · {typeof order.total === 'number' ? `${order.total.toLocaleString()}원` : order.total}
+                            </p>
+                        </div>
+                    </div>
+                    <button onClick={handlePrintQuote} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-500 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors shrink-0">
+                        <Printer className="w-3.5 h-3.5" /> 견적서
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4 hover:shadow-md transition-shadow">
@@ -354,11 +381,13 @@ export default function OrderCard({ order }) {
                                     {order.status === 'MODIFY_REQUEST' && '수정 요청을 확인하여 작업 중입니다'}
                                     {order.status === 'APPROVED' && '시안이 확정되어 제작이 진행 중입니다'}
                                     {order.status === 'SHIPPING' && '상품이 원장님께 배송 중입니다'}
-                                    {order.status === 'DONE' && '배송 및 모든 작업이 완료되었습니다'}
+                                    {order.status === 'DONE' && '배송이 완료되었습니다'}
                                     {order.status === 'TAX_INVOICE' && '세금계산서 발행이 완료되었습니다'}
                                 </p>
                                 <p className="text-slate-500 text-xs md:text-sm leading-relaxed font-medium">
-                                    {order.status === 'TAX_INVOICE' ? '요청하신 세금계산서가 발행되었습니다. 이메일을 확인해 주세요.' : order.status === 'DONE' ? '아임오케이를 이용해주셔서 감사합니다. 다음에도 꼭 다시 찾아주세요!' : '현재 공정 단계에 맞춰 꼼꼼하게 작업 중입니다. 단계가 변경될 때마다 알림을 보내 드립니다.'}
+                                    {order.status === 'TAX_INVOICE' && '요청하신 세금계산서가 발행되었습니다. 이메일을 확인해 주세요.'}
+                                    {order.status === 'DONE' && '상품을 잘 수령하셨나요? 아임오케이를 이용해주셔서 감사합니다.'}
+                                    {!['TAX_INVOICE', 'DONE'].includes(order.status) && '현재 공정 단계에 맞춰 꼼꼼하게 작업 중입니다. 단계가 변경될 때마다 알림을 보내 드립니다.'}
                                 </p>
                             </div>
                         </div>
