@@ -12,6 +12,7 @@ export class Order {
         status = 'NEW',
         modificationRequest = '',
         createdAt = new Date(),
+        deliveredAt = null,
     }) {
         this.id = id;
         this.academyName = academyName;
@@ -25,5 +26,6 @@ export class Order {
         this.status = status;
         this.modificationRequest = modificationRequest;
         this.createdAt = createdAt;
+        this.deliveredAt = deliveredAt;
     }
 }

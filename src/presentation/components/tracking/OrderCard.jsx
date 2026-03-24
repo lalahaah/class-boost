@@ -3,6 +3,7 @@ import { AlertCircle, RefreshCcw, Download, ShieldCheck, Image, Check, Printer, 
 import { OrderRepository } from '../../../data/OrderRepository';
 import { STATUS_MAP, STATUS_COLORS, PRICING } from '../../../core/constants';
 import { useDialog } from '../DialogProvider';
+import FinalOrderModal from './FinalOrderModal';
 
 const PROGRESS_STEPS = [
     { id: 'NEW', label: '신규접수' },
@@ -109,6 +110,7 @@ export default function OrderCard({ order }) {
     const [modifyingOrderId, setModifyingOrderId] = useState(null);
     const [modText, setModText] = useState('');
     const [showHistory, setShowHistory] = useState(false);
+    const [showFinalModal, setShowFinalModal] = useState(false);
 
     const handleStatusUpdate = async (newStatus) => {
         try {
@@ -156,27 +158,43 @@ export default function OrderCard({ order }) {
     // FINAL 상태: 요약 카드만 표시
     if (order.status === 'FINAL') {
         return (
-            <div className="bg-white rounded-2xl shadow-sm border border-teal-100 overflow-hidden animate-in fade-in">
-                <div className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center shrink-0 border border-teal-100">
-                            <CheckCheck className="w-5 h-5 text-teal-600" />
-                        </div>
-                        <div>
-                            <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-bold text-slate-700 text-sm">{order.customId || order.id.substring(0, 8).toUpperCase()}</span>
-                                <span className="text-[10px] font-bold bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full border border-teal-200">최종완료</span>
+            <>
+                <div className="bg-white rounded-2xl shadow-sm border border-teal-100 overflow-hidden animate-in fade-in cursor-pointer hover:shadow-md hover:border-teal-200 transition-all" onClick={() => setShowFinalModal(true)}>
+                    <div className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center shrink-0 border border-teal-100">
+                                <CheckCheck className="w-5 h-5 text-teal-600" />
                             </div>
-                            <p className="text-xs text-slate-400 mt-0.5">
-                                {order.academyName} · {(order.items || []).length}건 · {typeof order.total === 'number' ? `${order.total.toLocaleString()}원` : order.total}
-                            </p>
+                            <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-bold text-slate-700 text-sm">{order.customId || order.id.substring(0, 8).toUpperCase()}</span>
+                                    <span className="text-[10px] font-bold bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full border border-teal-200">최종완료</span>
+                                </div>
+                                <p className="text-xs text-slate-400 mt-0.5">
+                                    {order.academyName} · {(order.items || []).length}건 · {typeof order.total === 'number' ? `${order.total.toLocaleString()}원` : order.total}
+                                </p>
+                            </div>
                         </div>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handlePrintQuote();
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-500 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors shrink-0"
+                        >
+                            <Printer className="w-3.5 h-3.5" /> 견적서
+                        </button>
                     </div>
-                    <button onClick={handlePrintQuote} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-500 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors shrink-0">
-                        <Printer className="w-3.5 h-3.5" /> 견적서
-                    </button>
                 </div>
-            </div>
+
+                {showFinalModal && (
+                    <FinalOrderModal
+                        order={order}
+                        onPrintQuote={handlePrintQuote}
+                        onClose={() => setShowFinalModal(false)}
+                    />
+                )}
+            </>
         );
     }
 

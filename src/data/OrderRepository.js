@@ -56,7 +56,11 @@ export const OrderRepository = {
     // 관리자: 주문 상태 단일 변경 (AdminView에서 호출)
     async updateOrderStatus(docId, newStatus) {
         const orderRef = doc(db, ORDERS_COLLECTION, docId);
-        await updateDoc(orderRef, { status: newStatus });
+        const updateData = { status: newStatus };
+        if (newStatus === 'DONE') {
+            updateData.deliveredAt = Timestamp.now();
+        }
+        await updateDoc(orderRef, updateData);
     },
 
     // 관리자: 주문 단가/금액 변경 (AdminView에서 호출)
