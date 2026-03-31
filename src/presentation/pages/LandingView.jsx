@@ -6,6 +6,7 @@ import GridPattern from '../components/GridPattern';
 export default function LandingView() {
     const navigate = useNavigate();
     const [showContactModal, setShowContactModal] = useState(false);
+    const [showComingSoonModal, setShowComingSoonModal] = useState(false);
 
     return (
         <div className="animate-in fade-in duration-500">
@@ -26,7 +27,7 @@ export default function LandingView() {
                         <button onClick={() => navigate('/order')} className="bg-orange-600 hover:bg-orange-700 text-white px-8 py-4 rounded-xl font-bold text-lg shadow-xl shadow-orange-600/30 transition-all cursor-pointer flex items-center justify-center transform hover:-translate-y-1">
                             실시간 견적 확인하기 <ChevronRight className="ml-2 h-5 w-5" />
                         </button>
-                        <button className="bg-white hover:bg-slate-50 text-slate-700 border-2 border-slate-200 px-8 py-4 cursor-pointer rounded-xl font-bold text-lg shadow-sm hover:shadow transition-all flex items-center justify-center">
+                        <button onClick={() => setShowComingSoonModal(true)} className="bg-white hover:bg-slate-50 text-slate-700 border-2 border-slate-200 px-8 py-4 cursor-pointer rounded-xl font-bold text-lg shadow-sm hover:shadow transition-all flex items-center justify-center">
                             <Download className="mr-2 h-5 w-5 text-slate-400" /> 소개서 다운로드
                         </button>
                     </div>
@@ -155,6 +156,27 @@ export default function LandingView() {
                     </button>
                 </div>
             </div>
+
+            {/* Coming Soon Modal */}
+            {showComingSoonModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+                        <div className="p-8 text-center">
+                            <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <Download className="w-8 h-8 text-orange-600" />
+                            </div>
+                            <h3 className="text-2xl font-bold text-slate-900 mb-3">준비중입니다</h3>
+                            <p className="text-slate-600 mb-8">소개서 다운로드 기능은 현재 준비 중입니다.<br />곧 오픈될 예정이니 기대해 주세요!</p>
+                            <button
+                                onClick={() => setShowComingSoonModal(false)}
+                                className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-xl transition-colors cursor-pointer"
+                            >
+                                확인
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Contact Modal */}
             {showContactModal && (
