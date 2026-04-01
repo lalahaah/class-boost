@@ -1,9 +1,28 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+
+    // 파일 조회: 시안 이미지, 디자인 파일 열람 허용
     match /{allPaths=**} {
-      // 테스트 모드: 누구나 읽고 쓰기 가능
-      allow read, write: if true;
+      allow read: if true;
+    }
+
+    // 파트너 디자인 파일 업로드 (ai, psd, pdf, zip, 이미지)
+    // 최대 50MB
+    match /design_files/{fileName} {
+      allow write: if request.resource.size <= 52428800
+                   && (request.resource.contentType.matches('image/.*')
+                    || request.resource.contentType.matches('application/pdf')
+                    || request.resource.contentType.matches('application/zip')
+                    || request.resource.contentType.matches('application/x-zip.*')
+                    || request.resource.contentType.matches('application/postscript')
+                    || request.resource.contentType.matches('application/octet-stream'));
+    }
+
+    // 관리자 시안 이미지 업로드 (이미지만, 최대 10MB)
+    match /draft_proofs/{fileName} {
+      allow write: if request.resource.size <= 10485760
+                   && request.resource.contentType.matches('image/.*');
     }
   }
 }

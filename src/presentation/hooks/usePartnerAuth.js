@@ -2,9 +2,6 @@ import { useState, useEffect } from 'react';
 import { PartnerRepository } from '../../data/PartnerRepository';
 import { useDialog } from '../components/DialogProvider';
 
-const DEMO_CODE = 'VIP2026';
-const DEMO_PARTNER = { id: 'DEMO', academyName: '체험용(VIP)', code: DEMO_CODE };
-
 export function usePartnerAuth({ onLogin } = {}) {
     const { showAlert } = useDialog();
     const [authCode, setAuthCode] = useState('');
@@ -44,11 +41,6 @@ export function usePartnerAuth({ onLogin } = {}) {
     const handleAuthSubmit = async (e) => {
         e.preventDefault();
 
-        if (authCode.toUpperCase() === DEMO_CODE) {
-            saveSession({ ...DEMO_PARTNER, code: DEMO_CODE });
-            return;
-        }
-
         try {
             const partnerData = await PartnerRepository.verifyPartnerCode(authCode.toUpperCase());
             if (partnerData) {
@@ -82,7 +74,7 @@ export function usePartnerAuth({ onLogin } = {}) {
 
     const handleFindCode = async (e) => {
         e.preventDefault();
-        await showAlert(`[발송 완료] 입력하신 연락처(${inquiryData.phone})로 코드를 다시 발송했습니다.\n(데모: VIP2026)`);
+        await showAlert(`[발송 완료] 입력하신 연락처(${inquiryData.phone})로 코드를 다시 발송했습니다.`);
         setAuthMode('login');
         setInquiryData({ academyName: '', phone: '' });
     };
@@ -104,7 +96,7 @@ export function usePartnerAuth({ onLogin } = {}) {
         isAuthorized,
         partnerId,
         academyName, setAcademyName,
-        isDemo: partnerId === 'DEMO',
+        isDemo: false,
         handleAuthSubmit,
         handleRequestPartner,
         handleFindCode,

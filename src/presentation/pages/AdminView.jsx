@@ -32,7 +32,6 @@ function AdminLoginScreen({ pin, setPin, onLogin }) {
                         접속하기
                     </button>
                 </form>
-                <p className="mt-4 text-xs text-slate-400">Demo PIN: 0000</p>
             </div>
         </div>
     );
