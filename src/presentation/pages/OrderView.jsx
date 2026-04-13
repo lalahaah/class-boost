@@ -126,7 +126,7 @@ export default function OrderView() {
     const [academyName, setAcademyName] = useState('');
     const [phone, setPhone] = useState('');
     const [text, setText] = useState('');
-    const [file, setFile] = useState(null);
+    const [files, setFiles] = useState([]);
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
 
@@ -156,7 +156,7 @@ export default function OrderView() {
     };
 
     const handleSubmit = async () => {
-        if (!file) { await showAlert("원본/디자인 파일 첨부는 필수입니다.", '확인'); return; }
+        if (files.length === 0) { await showAlert("원본/디자인 파일 첨부는 필수입니다.", '확인'); return; }
         for (const item of items) {
             if (item.size === 'CUSTOM' && (!item.customWidth || !item.customHeight)) {
                 await showAlert("직접 입력 사이즈를 정확히 입력해주세요.", '확인'); return;
@@ -165,14 +165,14 @@ export default function OrderView() {
 
         try {
             setIsUploading(true);
-            const downloadURL = await StorageService.uploadFile(file, 'design_files');
+            const downloadURLs = await Promise.all(files.map(f => StorageService.uploadFile(f, 'design_files')));
             await OrderRepository.createOrder({
                 academyName,
                 phone,
                 partnerId: auth.partnerId,
                 items,
                 designRequestText: text,
-                designFileUrl: downloadURL,
+                designFileUrls: downloadURLs,
                 total: totals.hasUnpricedCustom ? '담당자 확인 중' : totals.finalTotal,
                 shippingFee: totals.shippingFee,
                 status: 'NEW'
@@ -277,13 +277,23 @@ export default function OrderView() {
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-2">파일 첨부 (필수)</label>
                                 <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl p-8 relative hover:bg-slate-100 transition-colors cursor-pointer group">
-                                    <input type="file" required className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onChange={(e) => setFile(e.target.files[0])} />
+                                    <input type="file" multiple required className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onChange={(e) => setFiles(prev => [...prev, ...Array.from(e.target.files)])} />
                                     <div className="flex flex-col items-center justify-center text-center">
-                                        <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-transform group-hover:scale-110 ${file ? 'bg-green-100 text-green-600' : 'bg-slate-200 text-slate-500'}`}>
-                                            {file ? <CheckCircle className="h-8 w-8" /> : <Upload className="h-8 w-8" />}
+                                        <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-transform group-hover:scale-110 ${files.length > 0 ? 'bg-green-100 text-green-600' : 'bg-slate-200 text-slate-500'}`}>
+                                            {files.length > 0 ? <CheckCircle className="h-8 w-8" /> : <Upload className="h-8 w-8" />}
                                         </div>
-                                        <p className={`font-bold text-lg mb-1 ${file ? 'text-green-700' : 'text-slate-900'}`}>{file ? file.name : '디자인 원본 파일 업로드'}</p>
-                                        {!file && <p className="text-sm text-slate-500">클릭하거나 파일을 이 영역으로 드래그하세요. (ai, psd, pdf, zip)</p>}
+                                        <p className={`font-bold text-lg mb-1 ${files.length > 0 ? 'text-green-700' : 'text-slate-900'}`}>{files.length > 0 ? `${files.length}개 파일 첨부됨` : '디자인 원본 파일 업로드'}</p>
+                                        {files.length === 0 && <p className="text-sm text-slate-500">클릭하거나 파일을 이 영역으로 드래그하세요. (ai, psd, pdf, zip)</p>}
+                                        {files.length > 0 && (
+                                            <ul className="mt-3 space-y-1 text-sm text-slate-600 text-left w-full max-w-xs">
+                                                {files.map((f, i) => (
+                                                    <li key={i} className="flex items-center justify-between gap-2 bg-white border border-slate-200 rounded-lg px-3 py-1.5">
+                                                        <span className="truncate">{f.name}</span>
+                                                        <button type="button" onClick={(e) => { e.stopPropagation(); setFiles(prev => prev.filter((_, idx) => idx !== i)); }} className="shrink-0 text-slate-400 hover:text-red-500 transition-colors text-xs font-bold">✕</button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        )}
                                     </div>
                                 </div>
                             </div>
