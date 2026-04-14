@@ -155,6 +155,33 @@ export default function OrderView() {
         printWindow.focus();
     };
 
+    const handleFileChange = (e) => {
+        const newFiles = Array.from(e.target.files);
+        const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+
+        const validFiles = [];
+        const oversizedFiles = [];
+
+        for (const file of newFiles) {
+            if (file.size > MAX_FILE_SIZE) {
+                oversizedFiles.push(`${file.name} (${(file.size / (1024 * 1024)).toFixed(1)}MB)`);
+            } else {
+                validFiles.push(file);
+            }
+        }
+
+        if (oversizedFiles.length > 0) {
+            showAlert(
+                `다음 파일들이 50MB를 초과했습니다:\n${oversizedFiles.join('\n')}\n\n용량을 줄인 후 다시 시도해주세요.`,
+                '파일 크기 초과'
+            );
+        }
+
+        if (validFiles.length > 0) {
+            setFiles(prev => [...prev, ...validFiles]);
+        }
+    };
+
     const handleSubmit = async () => {
         if (files.length === 0) { await showAlert("원본/디자인 파일 첨부는 필수입니다.", '확인'); return; }
         for (const item of items) {
@@ -178,8 +205,8 @@ export default function OrderView() {
                 status: 'NEW'
             });
             setIsSubmitted(true);
-        } catch {
-            showAlert('주문 처리 중 오류가 발생했습니다.', '오류');
+        } catch (error) {
+            showAlert(error?.message || '주문 처리 중 오류가 발생했습니다.', '오류');
         } finally {
             setIsUploading(false);
         }
@@ -277,7 +304,7 @@ export default function OrderView() {
                             <div>
                                 <label className="block text-sm font-bold text-slate-700 mb-2">파일 첨부 (필수)</label>
                                 <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl p-8 relative hover:bg-slate-100 transition-colors cursor-pointer group">
-                                    <input type="file" multiple required className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onChange={(e) => setFiles(prev => [...prev, ...Array.from(e.target.files)])} />
+                                    <input type="file" multiple required className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onChange={handleFileChange} />
                                     <div className="flex flex-col items-center justify-center text-center">
                                         <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 transition-transform group-hover:scale-110 ${files.length > 0 ? 'bg-green-100 text-green-600' : 'bg-slate-200 text-slate-500'}`}>
                                             {files.length > 0 ? <CheckCircle className="h-8 w-8" /> : <Upload className="h-8 w-8" />}
