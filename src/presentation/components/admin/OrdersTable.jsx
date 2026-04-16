@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Edit3, Download, Image as ImageIcon, Send, RefreshCcw } from 'lucide-react';
+import { Edit3, Download, Image as ImageIcon, Send, RefreshCcw, Truck } from 'lucide-react';
 import { OrderRepository } from '../../../data/OrderRepository';
 import { StorageService } from '../../../data/StorageService';
 import { STATUS_MAP, STATUS_COLORS } from '../../../core/constants';
 import { useDialog } from '../DialogProvider';
 
-export default function OrdersTable({ orders, onOpenPriceModal }) {
+export default function OrdersTable({ orders, onOpenPriceModal, onOpenShippingPanel }) {
     const { showAlert } = useDialog();
     const [isUploadingDraft, setIsUploadingDraft] = useState({});
 
@@ -157,6 +157,18 @@ export default function OrdersTable({ orders, onOpenPriceModal }) {
                                                 }} />
                                             </label>
                                         )}
+                                        <button
+                                            type="button"
+                                            onClick={() => onOpenShippingPanel(order)}
+                                            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ml-auto ${
+                                                order.quoteSentAt
+                                                    ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                                                    : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                                            }`}
+                                        >
+                                            <Truck className="w-3 h-3" />
+                                            {order.quoteSentAt ? '견적 재발송' : '배송비 검토'}
+                                        </button>
                                     </div>
                                 </td>
                             </tr>

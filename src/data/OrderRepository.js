@@ -1,6 +1,8 @@
 import { collection, doc, addDoc, updateDoc, onSnapshot, query, orderBy, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from './firebase';
 
+const SHIPPING_ADJUSTMENTS_COLLECTION = 'shipping_adjustments';
+
 const ORDERS_COLLECTION = 'orders';
 
 export const OrderRepository = {
@@ -76,5 +78,41 @@ export const OrderRepository = {
             draftImageUrls: newDraftUrls,
             proofImageUrl: newDraftUrls.length > 0 ? newDraftUrls[newDraftUrls.length - 1] : '' // 레거시 호환용
         });
-    }
+    },
+
+    // 관리자: 배송비 조정 이력 저장 + 주문 배송비 업데이트
+    async saveShippingAdjustment(orderId, adminId, autoResult, finalShipping) {
+        // 조정 이력 저장
+        await addDoc(collection(db, SHIPPING_ADJUSTMENTS_COLLECTION), {
+            order_id: orderId,
+            admin_id: adminId,
+            created_at: Timestamp.now(),
+            auto_boxes: autoResult.boxes,
+            auto_subtotal: autoResult.subtotal,
+            final_method: finalShipping.method,
+            final_boxes: finalShipping.boxes,
+            final_subtotal: finalShipping.subtotal,
+            final_total: finalShipping.total,
+            is_manual_override: finalShipping.isManualOverride,
+            admin_note: finalShipping.adminNote || '',
+        });
+
+        // 주문 배송비 + 발송 시각 갱신
+        const orderRef = doc(db, ORDERS_COLLECTION, orderId);
+        await updateDoc(orderRef, {
+            shippingFee: finalShipping.total,
+            quoteSentAt: Timestamp.now(),
+        });
+    },
+
+    // 배송비/견적 발송 알림 (이메일/카카오 - stub)
+    async sendQuoteNotification(order, finalShipping) {
+        // TODO: Resend API 이메일 발송
+        // TODO: 카카오 비즈메시지 발송
+        console.log('[STUB] 견적 발송:', {
+            to: order.phone,
+            academyName: order.academyName,
+            shippingTotal: finalShipping.total,
+        });
+    },
 };

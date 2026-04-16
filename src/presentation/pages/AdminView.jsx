@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { OrderRepository } from '../../data/OrderRepository';
 import { PartnerRepository } from '../../data/PartnerRepository';
+import { calculateShipping } from '../../core/shipping-logic';
 import { useDialog } from '../components/DialogProvider';
 import OrdersTable from '../components/admin/OrdersTable';
 import PartnersTable from '../components/admin/PartnersTable';
 import PartnerDetailModal from '../components/admin/PartnerDetailModal';
 import PriceModal from '../components/admin/PriceModal';
+import ShippingReviewPanel from '../components/admin/ShippingReviewPanel';
 
 const ADMIN_PIN = import.meta.env.VITE_ADMIN_PIN || '0000';
 
@@ -47,6 +49,7 @@ export default function AdminView() {
     const [partners, setPartners] = useState([]);
     const [selectedPartner, setSelectedPartner] = useState(null);
     const [priceModalOrder, setPriceModalOrder] = useState(null);
+    const [shippingPanelOrder, setShippingPanelOrder] = useState(null);
 
     useEffect(() => {
         const adminAuth = localStorage.getItem('isAdminAuthenticated');
@@ -107,7 +110,11 @@ export default function AdminView() {
             </div>
 
             {activeTab === 'orders' && (
-                <OrdersTable orders={orders} onOpenPriceModal={setPriceModalOrder} />
+                <OrdersTable
+                    orders={orders}
+                    onOpenPriceModal={setPriceModalOrder}
+                    onOpenShippingPanel={setShippingPanelOrder}
+                />
             )}
 
             {activeTab === 'partners' && (
@@ -118,6 +125,27 @@ export default function AdminView() {
 
             {priceModalOrder && (
                 <PriceModal order={priceModalOrder} onClose={() => setPriceModalOrder(null)} />
+            )}
+
+            {shippingPanelOrder && (
+                <ShippingReviewPanel
+                    order={shippingPanelOrder}
+                    onClose={() => setShippingPanelOrder(null)}
+                    onConfirm={async (finalShipping) => {
+                        const autoResult = calculateShipping(shippingPanelOrder.items);
+                        await OrderRepository.saveShippingAdjustment(
+                            shippingPanelOrder.id,
+                            'admin',
+                            autoResult,
+                            finalShipping
+                        );
+                        await OrderRepository.sendQuoteNotification(shippingPanelOrder, finalShipping);
+                        await showAlert(
+                            `${shippingPanelOrder.academyName}에게 최종 견적이 발송되었습니다.\n배송비: ${finalShipping.total.toLocaleString()}원 (VAT 포함)`,
+                            '발송 완료'
+                        );
+                    }}
+                />
             )}
         </div>
     );
